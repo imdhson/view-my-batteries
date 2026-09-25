@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 배터리 보기</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e38;
+    --text: #e8eaed;
+    --muted: #9aa0aa;
+    --accent: #4f8cff;
+    --green: #34c759;
+    --yellow: #ffb020;
+    --red: #ff4d4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  /* --- Join screen --- */
+  #join-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 90vh;
+  }
+  .join-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .join-card h1 { text-align: center; font-size: 22px; }
+  .join-card .sub { text-align: center; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input[type=text] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #11131a;
+    color: var(--text);
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .btn-primary {
+    width: 100%;
+    margin-top: 20px;
+    padding: 13px;
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; }
+  .error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 16px; }
+
+  /* --- Dashboard --- */
+  #dashboard { display: none; }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .room-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .status-dot.live { background: var(--green); }
+  .btn-leave {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .btn-leave:hover { color: var(--text); border-color: var(--muted); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .device {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    position: relative;
+  }
+  .device.me { border-color: var(--accent); }
+  .device .me-tag {
+    position: absolute; top: 14px; right: 14px;
+    font-size: 11px; color: var(--accent); font-weight: 700;
+    background: rgba(79,140,255,0.12);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .device .name {
+    font-size: 15px; font-weight: 600;
+    padding-right: 50px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .device .ua {
+    font-size: 12px; color: var(--muted);
+    margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .level-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 16px;
+  }
+  .level-pct { font-size: 24px; font-weight: 700; min-width: 58px; }
+  .bar-track {
+    flex: 1; height: 10px; border-radius: 6px;
+    background: #11131a;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+  .charging-icon { font-size: 16px; }
+  .meta-row {
+    display: flex; justify-content: space-between;
+    margin-top: 12px; font-size: 12px; color: var(--muted);
+  }
+  .unsupported { font-size: 13px; color: var(--muted); margin-top: 16px; }
+  .empty {
+    text-align: center; color: var(--muted);
+    padding: 60px 20px; font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="join-screen">
+  <div class="join-card">
+    <h1>🔋 내 배터리 보기</h1>
+    <div class="sub">ID를 입력하면 같은 ID를 쓰는 모든 기기의 배터리 상태를 실시간으로 볼 수 있어요.</div>
+    <label for="room-input">내 ID</label>
+    <input type="text" id="room-input" placeholder="예: hhammer" autocomplete="off" maxlength="64">
+    <label for="name-input">이 기기 이름 (선택)</label>
+    <input type="text" id="name-input" placeholder="예: 내 노트북" autocomplete="off" maxlength="80">
+    <button class="btn-primary" id="join-btn">입장하기</button>
+    <div class="error" id="join-error"></div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="room-badge">
+        <span class="status-dot" id="status-dot"></span>
+        <span>ID: <strong id="room-label"></strong></span>
+      </div>
+      <button class="btn-leave" id="leave-btn">나가기</button>
+    </div>
+    <div class="grid" id="device-grid"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const joinScreen = document.getElementById("join-screen");
+  const dashboard = document.getElementById("dashboard");
+  const roomInput = document.getElementById("room-input");
+  const nameInput = document.getElementById("name-input");
+  const joinBtn = document.getElementById("join-btn");
+  const joinError = document.getElementById("join-error");
+  const roomLabel = document.getElementById("room-label");
+  const statusDot = document.getElementById("status-dot");
+  const leaveBtn = document.getElementById("leave-btn");
+  const grid = document.getElementById("device-grid");
+
+  const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  function getDeviceId() {
+    let id = localStorage.getItem("vmb_deviceId");
+    if (!id) {
+      id = uuid();
+      localStorage.setItem("vmb_deviceId", id);
+    }
+    return id;
+  }
+
+  function guessDeviceName() {
+    const ua = navigator.userAgent;
+    let platform = "기기";
+    if (/iPhone/.test(ua)) platform = "iPhone";
+    else if (/iPad/.test(ua)) platform = "iPad";
+    else if (/Android/.test(ua)) platform = "Android";
+    else if (/Macintosh/.test(ua)) platform = "Mac";
+    else if (/Windows/.test(ua)) platform = "Windows PC";
+    else if (/Linux/.test(ua)) platform = "Linux";
+    let browser = "";
+    if (/Edg\//.test(ua)) browser = "Edge";
+    else if (/Chrome\//.test(ua)) browser = "Chrome";
+    else if (/Firefox\//.test(ua)) browser = "Firefox";
+    else if (/Safari\//.test(ua)) browser = "Safari";
+    return browser ? platform + " · " + browser : platform;
+  }
+
+  const deviceId = getDeviceId();
+  let roomId = localStorage.getItem("vmb_roomId") || "";
+  let deviceName = localStorage.getItem("vmb_deviceName") || "";
+
+  let eventSource = null;
+  let batteryManager = null;
+  let heartbeatTimer = null;
+  let lastLevel = null;
+  let lastCharging = null;
+  let batterySupported = false;
+
+  function sendUpdate() {
+    if (!roomId) return;
+    const body = {
+      roomId: roomId,
+      deviceId: deviceId,
+      name: deviceName || guessDeviceName(),
+      supported: batterySupported,
+      level: batterySupported ? lastLevel : null,
+      charging: batterySupported ? lastCharging : null,
+      userAgent: navigator.userAgent
+    };
+    fetch("/api/battery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).catch(function () {});
+  }
+
+  function onBatteryChange() {
+    if (!batteryManager) return;
+    lastLevel = batteryManager.level;
+    lastCharging = batteryManager.charging;
+    sendUpdate();
+  }
+
+  function initBattery() {
+    if (navigator.getBattery) {
+      navigator.getBattery().then(function (bm) {
+        batteryManager = bm;
+        batterySupported = true;
+        lastLevel = bm.level;
+        lastCharging = bm.charging;
+        bm.addEventListener("levelchange", onBatteryChange);
+        bm.addEventListener("chargingchange", onBatteryChange);
+        sendUpdate();
+      }).catch(function () {
+        batterySupported = false;
+        sendUpdate();
+      });
+    } else {
+      batterySupported = false;
+      sendUpdate();
+    }
+  }
+
+  function leaveRoom(useBeacon) {
+    if (!roomId) return;
+    const payload = JSON.stringify({ roomId: roomId, deviceId: deviceId });
+    if (useBeacon && navigator.sendBeacon) {
+      navigator.sendBeacon("/api/leave", new Blob([payload], { type: "application/json" }));
+    } else {
+      fetch("/api/leave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true
+      }).catch(function () {});
+    }
+  }
+
+  function formatAgo(iso) {
+    const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (diff < 5) return "방금 전";
+    if (diff < 60) return Math.floor(diff) + "초 전";
+    return Math.floor(diff / 60) + "분 전";
+  }
+
+  function levelColor(pct) {
+    if (pct <= 20) return "var(--red)";
+    if (pct <= 50) return "var(--yellow)";
+    return "var(--green)";
+  }
+
+  function render(devices) {
+    if (!devices || devices.length === 0) {
+      grid.innerHTML = '<div class="empty">연결된 기기가 없습니다. 잠시만 기다려주세요…</div>';
+      return;
+    }
+    grid.innerHTML = devices.map(function (d) {
+      const isMe = d.id === deviceId;
+      let levelBlock;
+      if (d.supported && d.level !== null && d.level !== undefined) {
+        const pct = Math.round(d.level * 100);
+        const color = levelColor(pct);
+        const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중">⚡</span>' : "";
+        levelBlock =
+          '<div class="level-row">' +
+            '<div class="level-pct" style="color:' + color + '">' + pct + '%</div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+            chargeIcon +
+          '</div>';
+      } else {
+        levelBlock = '<div class="unsupported">이 브라우저는 배터리 정보를 지원하지 않습니다</div>';
+      }
+      const safeName = escapeHtml(d.name || "Unknown device");
+      const safeUa = escapeHtml(d.userAgent || "");
+      return (
+        '<div class="device' + (isMe ? ' me' : '') + '">' +
+          (isMe ? '<span class="me-tag">이 기기</span>' : '') +
+          '<div class="name">' + safeName + '</div>' +
+          '<div class="ua">' + safeUa + '</div>' +
+          levelBlock +
+          '<div class="meta-row"><span>' + formatAgo(d.updatedAt) + ' 업데이트</span></div>' +
+        '</div>'
+      );
+    }).join("");
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function connectStream() {
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource("/api/stream?roomId=" + encodeURIComponent(roomId));
+    eventSource.onopen = function () {
+      statusDot.classList.add("live");
+    };
+    eventSource.onerror = function () {
+      statusDot.classList.remove("live");
+    };
+    eventSource.onmessage = function (evt) {
+      try {
+        render(JSON.parse(evt.data));
+      } catch (e) {}
+    };
+  }
+
+  function showDashboard() {
+    joinScreen.style.display = "none";
+    dashboard.style.display = "block";
+    roomLabel.textContent = roomId;
+
+    connectStream();
+    initBattery();
+
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = setInterval(function () {
+      if (batterySupported && batteryManager) {
+        lastLevel = batteryManager.level;
+        lastCharging = batteryManager.charging;
+      }
+      sendUpdate();
+    }, 10000);
+
+    window.addEventListener("beforeunload", function () {
+      leaveRoom(true);
+    });
+  }
+
+  function tryJoin(id, name) {
+    id = (id || "").trim();
+    if (!ID_RE.test(id)) {
+      joinError.textContent = "ID는 영문/숫자/-/_ 조합, 1~64자로 입력해주세요.";
+      return;
+    }
+    joinError.textContent = "";
+    roomId = id;
+    deviceName = (name || "").trim();
+    localStorage.setItem("vmb_roomId", roomId);
+    localStorage.setItem("vmb_deviceName", deviceName);
+    showDashboard();
+  }
+
+  joinBtn.addEventListener("click", function () {
+    tryJoin(roomInput.value, nameInput.value);
+  });
+  roomInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") tryJoin(roomInput.value, nameInput.value);
+  });
+  nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") tryJoin(roomInput.value, nameInput.value);
+  });
+
+  leaveBtn.addEventListener("click", function () {
+    leaveRoom(false);
+    if (eventSource) eventSource.close();
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    localStorage.removeItem("vmb_roomId");
+    roomId = "";
+    dashboard.style.display = "none";
+    joinScreen.style.display = "flex";
+    roomInput.value = "";
+    roomInput.focus();
+  });
+
+  // Auto-rejoin if we already have a saved room id.
+  if (roomId) {
+    showDashboard();
+  } else {
+    joinScreen.style.display = "flex";
+  }
+  if (deviceName) nameInput.value = deviceName;
+})();
+</script>
+</body>
+</html>
