@@ -2,116 +2,264 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>내 배터리 보기</title>
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #0f1115;
-    --card: #1a1d24;
-    --border: #2a2e38;
-    --text: #e8eaed;
-    --muted: #9aa0aa;
-    --accent: #4f8cff;
-    --green: #34c759;
-    --yellow: #ffb020;
-    --red: #ff4d4f;
+    --bg-a: #0b0e14;
+    --bg-b: #171226;
+    --bg-c: #0d1b1f;
+    --text: #eef0f4;
+    --muted: rgba(238, 240, 244, 0.6);
+    --muted-2: rgba(238, 240, 244, 0.4);
+    --accent: #6ea8ff;
+    --accent-2: #8f6bff;
+    --green: #3ddc84;
+    --yellow: #ffc247;
+    --red: #ff5d5d;
+
+    --glass-fill: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(255,255,255,0.05));
+    --glass-fill-strong: linear-gradient(160deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06));
+    --glass-border: rgba(255,255,255,0.22);
+    --glass-highlight: rgba(255,255,255,0.35);
+    --glass-shadow: 0 12px 40px rgba(0,0,0,0.45);
   }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg-a: #eef2ff;
+      --bg-b: #fdeef7;
+      --bg-c: #e9fbf3;
+      --text: #1b1e27;
+      --muted: rgba(27, 30, 39, 0.62);
+      --muted-2: rgba(27, 30, 39, 0.42);
+      --glass-fill: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.22));
+      --glass-fill-strong: linear-gradient(160deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+      --glass-border: rgba(255,255,255,0.6);
+      --glass-highlight: rgba(255,255,255,0.85);
+      --glass-shadow: 0 12px 36px rgba(30,30,60,0.16);
+    }
+  }
+
   * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+  }
+
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
-    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Malgun Gothic", sans-serif;
+    background: var(--bg-a);
     color: var(--text);
     min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
   }
+
+  /* --- Ambient liquid background --- */
+  .bg-blobs {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    background: var(--bg-a);
+  }
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.55;
+    will-change: transform;
+  }
+  .blob-1 {
+    width: 60vmax; height: 60vmax;
+    top: -20vmax; left: -15vmax;
+    background: radial-gradient(circle at 30% 30%, var(--accent), transparent 70%);
+    animation: drift1 26s ease-in-out infinite alternate;
+  }
+  .blob-2 {
+    width: 55vmax; height: 55vmax;
+    bottom: -25vmax; right: -18vmax;
+    background: radial-gradient(circle at 60% 60%, var(--accent-2), transparent 70%);
+    animation: drift2 32s ease-in-out infinite alternate;
+  }
+  .blob-3 {
+    width: 45vmax; height: 45vmax;
+    bottom: 10vmax; left: 10vmax;
+    background: radial-gradient(circle at 50% 50%, var(--green), transparent 70%);
+    opacity: 0.3;
+    animation: drift3 22s ease-in-out infinite alternate;
+  }
+  @keyframes drift1 {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(6vmax, 8vmax) scale(1.08); }
+  }
+  @keyframes drift2 {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(-8vmax, -6vmax) scale(1.1); }
+  }
+  @keyframes drift3 {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(4vmax, -6vmax) scale(1.05); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blob { animation: none; }
+  }
+
   .wrap {
     max-width: 720px;
     margin: 0 auto;
-    padding: 24px 16px 60px;
+    padding: 108px 16px 60px;
   }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  /* --- Liquid glass base --- */
+  .glass {
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 12px rgba(0,0,0,0.06);
+    position: relative;
+  }
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0) 40%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.6;
+  }
 
   /* --- Join screen --- */
   #join-screen {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 90vh;
+    min-height: 100vh;
+    padding: 24px;
   }
   .join-card {
     width: 100%;
-    max-width: 360px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 28px;
+    max-width: 380px;
+    border-radius: 28px;
+    padding: 32px 28px;
   }
-  .join-card h1 { text-align: center; font-size: 22px; }
+  .join-card h1 { text-align: center; font-size: 24px; }
   .join-card .sub { text-align: center; }
-  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 16px 0 6px; font-weight: 500; }
   input[type=text] {
     width: 100%;
-    padding: 12px 14px;
+    padding: 13px 16px;
     font-size: 15px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #11131a;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+    background: rgba(127,127,127,0.08);
     color: var(--text);
     outline: none;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: border-color 0.2s ease, background 0.2s ease;
   }
-  input[type=text]:focus { border-color: var(--accent); }
+  input[type=text]::placeholder { color: var(--muted-2); }
+  input[type=text]:focus {
+    border-color: var(--accent);
+    background: rgba(110,168,255,0.08);
+  }
   button {
     cursor: pointer;
     border: none;
-    border-radius: 10px;
     font-size: 15px;
     font-weight: 600;
+    font-family: inherit;
   }
   .btn-primary {
     width: 100%;
-    margin-top: 20px;
-    padding: 13px;
-    background: var(--accent);
+    margin-top: 22px;
+    padding: 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
     color: white;
+    box-shadow: 0 8px 24px rgba(110,168,255,0.35), inset 0 1px 0 rgba(255,255,255,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .btn-primary:disabled { opacity: 0.5; cursor: default; }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(110,168,255,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; transform: none; }
   .error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 16px; }
 
   /* --- Dashboard --- */
   #dashboard { display: none; }
-  .topbar {
+
+  /* --- Floating bar --- */
+  .floating-bar {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 688px;
+    z-index: 100;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 8px 8px 18px;
+    border-radius: 999px;
+    animation: bar-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
+  @keyframes bar-in {
+    from { opacity: 0; transform: translate(-50%, -14px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+
   .room-badge {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 8px 14px;
-    border-radius: 999px;
+    gap: 9px;
     font-size: 14px;
+    min-width: 0;
   }
+  .room-badge strong { font-weight: 700; }
   .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--muted);
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted-2);
+    box-shadow: 0 0 0 0 rgba(61,220,132,0);
+    transition: background 0.3s ease;
+    flex-shrink: 0;
   }
-  .status-dot.live { background: var(--green); }
+  .status-dot.live {
+    background: var(--green);
+    animation: pulse 2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(61,220,132,0.5); }
+    70%  { box-shadow: 0 0 0 7px rgba(61,220,132,0); }
+    100% { box-shadow: 0 0 0 0 rgba(61,220,132,0); }
+  }
   .btn-leave {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 8px 14px;
-    border-radius: 10px;
+    background: rgba(127,127,127,0.14);
+    color: var(--text);
+    border: 1px solid var(--glass-border);
+    padding: 9px 16px;
+    border-radius: 999px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: background 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
   }
-  .btn-leave:hover { color: var(--text); border-color: var(--muted); }
+  .btn-leave:hover { background: rgba(127,127,127,0.24); transform: translateY(-1px); }
+  .btn-leave:active { transform: translateY(0); }
 
   .grid {
     display: grid;
@@ -119,57 +267,68 @@
     gap: 14px;
   }
   .device {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    position: relative;
+    border-radius: 20px;
+    padding: 18px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
   }
-  .device.me { border-color: var(--accent); }
+  .device:hover { transform: translateY(-3px); }
+  .device.me { border-color: rgba(110,168,255,0.55); }
   .device .me-tag {
-    position: absolute; top: 14px; right: 14px;
+    position: absolute; top: 16px; right: 16px;
     font-size: 11px; color: var(--accent); font-weight: 700;
-    background: rgba(79,140,255,0.12);
-    padding: 2px 8px; border-radius: 999px;
+    background: rgba(110,168,255,0.15);
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid rgba(110,168,255,0.3);
   }
   .device .name {
     font-size: 15px; font-weight: 600;
-    padding-right: 50px;
+    padding-right: 54px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .device .ua {
     font-size: 12px; color: var(--muted);
-    margin-top: 2px;
+    margin-top: 3px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .level-row {
     display: flex; align-items: center; gap: 10px;
-    margin-top: 16px;
+    margin-top: 18px;
   }
-  .level-pct { font-size: 24px; font-weight: 700; min-width: 58px; }
+  .level-pct { font-size: 26px; font-weight: 700; min-width: 62px; letter-spacing: -0.5px; }
   .bar-track {
     flex: 1; height: 10px; border-radius: 6px;
-    background: #11131a;
+    background: rgba(127,127,127,0.18);
     overflow: hidden;
-    border: 1px solid var(--border);
+    border: 1px solid var(--glass-border);
   }
-  .bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
-  .charging-icon { font-size: 16px; }
+  .bar-fill {
+    height: 100%; border-radius: 6px;
+    transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .charging-icon { font-size: 16px; filter: drop-shadow(0 0 6px rgba(255,194,71,0.6)); }
   .meta-row {
     display: flex; justify-content: space-between;
-    margin-top: 12px; font-size: 12px; color: var(--muted);
+    margin-top: 14px; font-size: 12px; color: var(--muted-2);
   }
-  .unsupported { font-size: 13px; color: var(--muted); margin-top: 16px; }
+  .unsupported { font-size: 13px; color: var(--muted); margin-top: 18px; }
   .empty {
     text-align: center; color: var(--muted);
     padding: 60px 20px; font-size: 14px;
+    border-radius: 20px;
   }
 </style>
 </head>
 <body>
 
+<div class="bg-blobs" aria-hidden="true">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
 <div id="join-screen">
-  <div class="join-card">
+  <div class="join-card glass">
     <h1>🔋 내 배터리 보기</h1>
     <div class="sub">ID를 입력하면 같은 ID를 쓰는 모든 기기의 배터리 상태를 실시간으로 볼 수 있어요.</div>
     <label for="room-input">내 ID</label>
@@ -182,14 +341,14 @@
 </div>
 
 <div id="dashboard">
-  <div class="wrap">
-    <div class="topbar">
-      <div class="room-badge">
-        <span class="status-dot" id="status-dot"></span>
-        <span>ID: <strong id="room-label"></strong></span>
-      </div>
-      <button class="btn-leave" id="leave-btn">나가기</button>
+  <div class="floating-bar glass" id="floating-bar">
+    <div class="room-badge">
+      <span class="status-dot" id="status-dot"></span>
+      <span>ID: <strong id="room-label"></strong></span>
     </div>
+    <button class="btn-leave" id="leave-btn">나가기</button>
+  </div>
+  <div class="wrap">
     <div class="grid" id="device-grid"></div>
   </div>
 </div>
@@ -328,7 +487,7 @@
 
   function render(devices) {
     if (!devices || devices.length === 0) {
-      grid.innerHTML = '<div class="empty">연결된 기기가 없습니다. 잠시만 기다려주세요…</div>';
+      grid.innerHTML = '<div class="empty glass">연결된 기기가 없습니다. 잠시만 기다려주세요…</div>';
       return;
     }
     grid.innerHTML = devices.map(function (d) {
@@ -350,7 +509,7 @@
       const safeName = escapeHtml(d.name || "Unknown device");
       const safeUa = escapeHtml(d.userAgent || "");
       return (
-        '<div class="device' + (isMe ? ' me' : '') + '">' +
+        '<div class="device glass' + (isMe ? ' me' : '') + '">' +
           (isMe ? '<span class="me-tag">이 기기</span>' : '') +
           '<div class="name">' + safeName + '</div>' +
           '<div class="ua">' + safeUa + '</div>' +
