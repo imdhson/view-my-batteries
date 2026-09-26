@@ -17,30 +17,88 @@ import (
 var staticFiles embed.FS
 
 const (
-	staleAfter     = 30 * time.Second
-	cleanupEvery   = 10 * time.Second
-	subChannelSize = 4
+	// heartbeatGrace: a device that never opened a stream still counts as
+	// online if it sent an update within this window.
+	heartbeatGrace = 25 * time.Second
+	// offlineRetention: how long an offline device stays listed (as offline)
+	// before it is dropped from the room.
+	offlineRetention = 10 * time.Minute
+	cleanupEvery     = 5 * time.Second
+	subChannelSize   = 4
+	maxInfoString    = 64
 )
 
-// Device represents the latest known state of a single connected device.
+// DeviceInfo holds optional, best-effort details the browser could expose.
+// Every field may be empty when the browser does not support the relevant API.
+type DeviceInfo struct {
+	OS             string  `json:"os,omitempty"`
+	OSVersion      string  `json:"osVersion,omitempty"`
+	Browser        string  `json:"browser,omitempty"`
+	Model          string  `json:"model,omitempty"`
+	DeviceType     string  `json:"deviceType,omitempty"`
+	ScreenW        int     `json:"screenW,omitempty"`
+	ScreenH        int     `json:"screenH,omitempty"`
+	PixelRatio     float64 `json:"pixelRatio,omitempty"`
+	Cores          int     `json:"cores,omitempty"`
+	MemoryGB       float64 `json:"memoryGB,omitempty"`
+	MaxTouchPoints int     `json:"maxTouchPoints,omitempty"`
+	Language       string  `json:"language,omitempty"`
+	Timezone       string  `json:"timezone,omitempty"`
+	NetType        string  `json:"netType,omitempty"`
+	Downlink       float64 `json:"downlink,omitempty"`
+	RTT            int     `json:"rtt,omitempty"`
+	SaveData       bool    `json:"saveData,omitempty"`
+	Visibility     string  `json:"visibility,omitempty"`
+}
+
+func clip(s string, n int) string {
+	if len(s) > n {
+		return s[:n]
+	}
+	return s
+}
+
+func (i *DeviceInfo) sanitize() {
+	for _, p := range []*string{&i.OS, &i.OSVersion, &i.Browser, &i.Model, &i.DeviceType,
+		&i.Language, &i.Timezone, &i.NetType, &i.Visibility} {
+		*p = clip(*p, maxInfoString)
+	}
+}
+
+// Device represents the latest known state of a single device.
 type Device struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Level     *float64  `json:"level"`
-	Charging  *bool     `json:"charging"`
-	Supported bool      `json:"supported"`
-	UserAgent string    `json:"userAgent"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Level       *float64   `json:"level"`
+	Charging    *bool      `json:"charging"`
+	Supported   bool       `json:"supported"`
+	UserAgent   string     `json:"userAgent"`
+	Info        DeviceInfo `json:"info"`
+	Online      bool       `json:"online"`
+	ConnectedAt *time.Time `json:"connectedAt,omitempty"`
+	LastSeen    time.Time  `json:"lastSeen"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+
+	lastOnline bool // online state as of the last snapshot
+}
+
+// presence tracks the open SSE connections of a device, which is the
+// real-time signal for "is this device connected right now".
+type presence struct {
+	conns    int
+	since    time.Time // start of the current connected session
+	lastSeen time.Time // last time a connection was open
 }
 
 type deviceUpdate struct {
-	RoomID    string  `json:"roomId"`
-	DeviceID  string  `json:"deviceId"`
-	Name      string  `json:"name"`
-	Level     *float64 `json:"level"`
-	Charging  *bool    `json:"charging"`
-	Supported bool     `json:"supported"`
-	UserAgent string   `json:"userAgent"`
+	RoomID    string     `json:"roomId"`
+	DeviceID  string     `json:"deviceId"`
+	Name      string     `json:"name"`
+	Level     *float64   `json:"level"`
+	Charging  *bool      `json:"charging"`
+	Supported bool       `json:"supported"`
+	UserAgent string     `json:"userAgent"`
+	Info      DeviceInfo `json:"info"`
 }
 
 type leaveRequest struct {
@@ -48,18 +106,44 @@ type leaveRequest struct {
 	DeviceID string `json:"deviceId"`
 }
 
+type roomSnapshot struct {
+	ServerTime time.Time `json:"serverTime"`
+	Devices    []Device  `json:"devices"`
+}
+
 // Store holds all in-memory room/device state. Nothing here is persisted to disk.
 type Store struct {
-	mu   sync.Mutex
-	rooms map[string]map[string]*Device      // roomID -> deviceID -> device
-	subs  map[string]map[chan []byte]struct{} // roomID -> set of subscriber channels
+	mu       sync.Mutex
+	rooms    map[string]map[string]*Device       // roomID -> deviceID -> device
+	presence map[string]map[string]*presence     // roomID -> deviceID -> presence
+	subs     map[string]map[chan []byte]struct{} // roomID -> set of subscriber channels
 }
 
 func newStore() *Store {
 	return &Store{
-		rooms: make(map[string]map[string]*Device),
-		subs:  make(map[string]map[chan []byte]struct{}),
+		rooms:    make(map[string]map[string]*Device),
+		presence: make(map[string]map[string]*presence),
+		subs:     make(map[string]map[chan []byte]struct{}),
 	}
+}
+
+// isOnline must be called with s.mu held. A device that has ever opened a
+// stream is online exactly while a stream is open; otherwise (e.g. a proxy
+// that breaks SSE) fall back to how recent its last heartbeat was.
+func (s *Store) isOnline(roomID string, d *Device, now time.Time) bool {
+	if p := s.presence[roomID][d.ID]; p != nil {
+		return p.conns > 0
+	}
+	return now.Sub(d.UpdatedAt) < heartbeatGrace
+}
+
+// lastSeen must be called with s.mu held.
+func (s *Store) lastSeen(roomID string, d *Device) time.Time {
+	t := d.UpdatedAt
+	if p := s.presence[roomID][d.ID]; p != nil && p.lastSeen.After(t) {
+		t = p.lastSeen
+	}
+	return t
 }
 
 func (s *Store) upsert(u deviceUpdate) {
@@ -76,6 +160,7 @@ func (s *Store) upsert(u deviceUpdate) {
 		Charging:  u.Charging,
 		Supported: u.Supported,
 		UserAgent: u.UserAgent,
+		Info:      u.Info,
 		UpdatedAt: time.Now(),
 	}
 	s.mu.Unlock()
@@ -87,17 +172,73 @@ func (s *Store) remove(roomID, deviceID string) {
 	if room, ok := s.rooms[roomID]; ok {
 		delete(room, deviceID)
 	}
+	if p := s.presence[roomID][deviceID]; p != nil && p.conns == 0 {
+		delete(s.presence[roomID], deviceID)
+	}
 	s.mu.Unlock()
 	s.broadcast(roomID)
 }
 
-func (s *Store) snapshot(roomID string) []*Device {
+// attach records a newly opened stream for a device.
+func (s *Store) attach(roomID, deviceID string) {
+	now := time.Now()
+	s.mu.Lock()
+	if s.presence[roomID] == nil {
+		s.presence[roomID] = make(map[string]*presence)
+	}
+	p := s.presence[roomID][deviceID]
+	if p == nil {
+		p = &presence{}
+		s.presence[roomID][deviceID] = p
+	}
+	if p.conns == 0 {
+		p.since = now
+	}
+	p.conns++
+	p.lastSeen = now
+	s.mu.Unlock()
+	s.broadcast(roomID)
+}
+
+// detach records a closed stream for a device.
+func (s *Store) detach(roomID, deviceID string) {
+	s.mu.Lock()
+	if p := s.presence[roomID][deviceID]; p != nil {
+		p.conns--
+		p.lastSeen = time.Now()
+		if p.conns <= 0 {
+			p.conns = 0
+			if _, known := s.rooms[roomID][deviceID]; !known {
+				delete(s.presence[roomID], deviceID)
+			}
+		}
+		if len(s.presence[roomID]) == 0 {
+			delete(s.presence, roomID)
+		}
+	}
+	s.mu.Unlock()
+	s.broadcast(roomID)
+}
+
+func (s *Store) snapshot(roomID string) roomSnapshot {
+	now := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	room := s.rooms[roomID]
-	list := make([]*Device, 0, len(room))
+	list := make([]Device, 0, len(room))
 	for _, d := range room {
-		list = append(list, d)
+		online := s.isOnline(roomID, d, now)
+		d.lastOnline = online
+
+		c := *d
+		c.Online = online
+		c.LastSeen = s.lastSeen(roomID, d)
+		if p := s.presence[roomID][d.ID]; p != nil && p.conns > 0 {
+			since := p.since
+			c.ConnectedAt = &since
+			c.LastSeen = now
+		}
+		list = append(list, c)
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Name != list[j].Name {
@@ -105,7 +246,7 @@ func (s *Store) snapshot(roomID string) []*Device {
 		}
 		return list[i].ID < list[j].ID
 	})
-	return list
+	return roomSnapshot{ServerTime: now, Devices: list}
 }
 
 func (s *Store) subscribe(roomID string) chan []byte {
@@ -160,19 +301,26 @@ func (s *Store) broadcast(roomID string) {
 	}
 }
 
-// cleanupStale periodically drops devices that stopped sending heartbeats.
+// cleanupStale periodically notices devices whose online state changed
+// because their heartbeat stopped, and drops devices offline for too long.
 func (s *Store) cleanupStale() {
 	ticker := time.NewTicker(cleanupEvery)
 	defer ticker.Stop()
 	for range ticker.C {
 		now := time.Now()
-		var affected []string
+		affected := make(map[string]struct{})
 		s.mu.Lock()
 		for roomID, room := range s.rooms {
 			for deviceID, d := range room {
-				if now.Sub(d.UpdatedAt) > staleAfter {
+				online := s.isOnline(roomID, d, now)
+				if !online && now.Sub(s.lastSeen(roomID, d)) > offlineRetention {
 					delete(room, deviceID)
-					affected = append(affected, roomID)
+					if p := s.presence[roomID][deviceID]; p != nil && p.conns == 0 {
+						delete(s.presence[roomID], deviceID)
+					}
+					affected[roomID] = struct{}{}
+				} else if online != d.lastOnline {
+					affected[roomID] = struct{}{}
 				}
 			}
 			if len(room) == 0 {
@@ -180,7 +328,7 @@ func (s *Store) cleanupStale() {
 			}
 		}
 		s.mu.Unlock()
-		for _, roomID := range affected {
+		for roomID := range affected {
 			s.broadcast(roomID)
 		}
 	}
@@ -213,7 +361,7 @@ func main() {
 			return
 		}
 		var u deviceUpdate
-		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&u); err != nil {
 			http.Error(w, "invalid json", http.StatusBadRequest)
 			return
 		}
@@ -224,12 +372,9 @@ func main() {
 		if u.Name == "" {
 			u.Name = "Unknown device"
 		}
-		if len(u.Name) > 80 {
-			u.Name = u.Name[:80]
-		}
-		if len(u.UserAgent) > 200 {
-			u.UserAgent = u.UserAgent[:200]
-		}
+		u.Name = clip(u.Name, 80)
+		u.UserAgent = clip(u.UserAgent, 200)
+		u.Info.sanitize()
 		store.upsert(u)
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
@@ -256,6 +401,13 @@ func main() {
 			http.Error(w, "invalid roomId", http.StatusBadRequest)
 			return
 		}
+		// deviceId is optional; when present, the open stream marks that
+		// device as connected in real time.
+		deviceID := r.URL.Query().Get("deviceId")
+		if deviceID != "" && !validID.MatchString(deviceID) {
+			http.Error(w, "invalid deviceId", http.StatusBadRequest)
+			return
+		}
 		flusher, ok := w.(http.Flusher)
 		if !ok {
 			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
@@ -269,6 +421,11 @@ func main() {
 
 		ch := store.subscribe(roomID)
 		defer store.unsubscribe(roomID, ch)
+
+		if deviceID != "" {
+			store.attach(roomID, deviceID)
+			defer store.detach(roomID, deviceID)
+		}
 
 		// Send the current snapshot immediately.
 		initial, _ := json.Marshal(store.snapshot(roomID))
