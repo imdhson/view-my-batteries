@@ -311,7 +311,47 @@
     display: flex; justify-content: space-between;
     margin-top: 14px; font-size: 12px; color: var(--muted-2);
   }
-  .unsupported { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .unsupported { font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .device.offline { opacity: 0.62; }
+  .device.offline:hover { opacity: 0.85; }
+
+  /* --- Presence (real-time connection) --- */
+  .presence-row {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
+    margin-top: 14px;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: rgba(127,127,127,0.12);
+    white-space: nowrap;
+  }
+  .pill .status-dot { width: 7px; height: 7px; }
+  .pill.online { color: var(--green); border-color: rgba(61,220,132,0.35); background: rgba(61,220,132,0.12); }
+  .pill.offline { color: var(--muted); }
+  .presence-sub { font-size: 12px; color: var(--muted); }
+
+  /* --- Extra device info --- */
+  .info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 12px;
+    margin-top: 14px;
+    font-size: 12.5px;
+  }
+  .info-grid dt { color: var(--muted-2); white-space: nowrap; }
+  .info-grid dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+  details.info { margin-top: 14px; }
+  details.info summary {
+    cursor: pointer; font-size: 12px; color: var(--muted);
+    list-style: none; user-select: none;
+  }
+  details.info summary::-webkit-details-marker { display: none; }
+  details.info summary::before { content: "▸ "; }
+  details.info[open] summary::before { content: "▾ "; }
+  details.info .info-grid { margin-top: 10px; }
   .empty {
     text-align: center; color: var(--muted);
     padding: 60px 20px; font-size: 14px;
@@ -384,21 +424,94 @@
     return id;
   }
 
-  function guessDeviceName() {
+  // High-entropy client hints (Chromium only). Filled in asynchronously.
+  let uaHints = null;
+  if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+    navigator.userAgentData.getHighEntropyValues(["model", "platformVersion"]).then(function (h) {
+      uaHints = h;
+      sendUpdate();
+    }).catch(function () {});
+  }
+
+  function parseUA() {
     const ua = navigator.userAgent;
-    let platform = "기기";
-    if (/iPhone/.test(ua)) platform = "iPhone";
-    else if (/iPad/.test(ua)) platform = "iPad";
-    else if (/Android/.test(ua)) platform = "Android";
-    else if (/Macintosh/.test(ua)) platform = "Mac";
-    else if (/Windows/.test(ua)) platform = "Windows PC";
-    else if (/Linux/.test(ua)) platform = "Linux";
+    const touch = navigator.maxTouchPoints || 0;
+    let m;
+    let platform = "기기", os = "", osVersion = "", deviceType = "desktop";
+    if (/iPhone/.test(ua)) {
+      platform = "iPhone"; os = "iOS"; deviceType = "mobile";
+    } else if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) {
+      platform = "iPad"; os = "iPadOS"; deviceType = "tablet";
+    } else if (/Android/.test(ua)) {
+      platform = "Android"; os = "Android";
+      deviceType = /Mobile/.test(ua) ? "mobile" : "tablet";
+      if ((m = ua.match(/Android (\d+(?:\.\d+)?)/))) osVersion = m[1];
+    } else if (/Macintosh/.test(ua)) {
+      platform = "Mac"; os = "macOS";
+    } else if (/Windows/.test(ua)) {
+      platform = "Windows PC"; os = "Windows";
+    } else if (/CrOS/.test(ua)) {
+      platform = "Chromebook"; os = "ChromeOS";
+    } else if (/Linux/.test(ua)) {
+      platform = "Linux"; os = "Linux";
+    }
+    if ((os === "iOS" || os === "iPadOS") && (m = ua.match(/OS (\d+)_(\d+)/))) {
+      osVersion = m[1] + "." + m[2];
+    }
+    if (uaHints && uaHints.platformVersion) {
+      const major = parseInt(uaHints.platformVersion, 10);
+      if (os === "Windows") osVersion = major >= 13 ? "11" : (major > 0 ? "10" : "");
+      else if (os === "macOS" || os === "Android") osVersion = uaHints.platformVersion.replace(/(\.0)+$/, "");
+    }
+    if (navigator.userAgentData && navigator.userAgentData.mobile) deviceType = "mobile";
+
     let browser = "";
-    if (/Edg\//.test(ua)) browser = "Edge";
-    else if (/Chrome\//.test(ua)) browser = "Chrome";
-    else if (/Firefox\//.test(ua)) browser = "Firefox";
-    else if (/Safari\//.test(ua)) browser = "Safari";
-    return browser ? platform + " · " + browser : platform;
+    if ((m = ua.match(/Edg\/(\d+)/))) browser = "Edge " + m[1];
+    else if ((m = ua.match(/SamsungBrowser\/(\d+)/))) browser = "Samsung Internet " + m[1];
+    else if ((m = ua.match(/(?:Chrome|CriOS)\/(\d+)/))) browser = "Chrome " + m[1];
+    else if ((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) browser = "Firefox " + m[1];
+    else if (/Safari\//.test(ua)) browser = "Safari" + ((m = ua.match(/Version\/(\d+(?:\.\d+)?)/)) ? " " + m[1] : "");
+
+    return { platform: platform, os: os, osVersion: osVersion, deviceType: deviceType, browser: browser };
+  }
+
+  function guessDeviceName() {
+    const p = parseUA();
+    const browser = p.browser.replace(/ [\d.]+$/, "");
+    return browser ? p.platform + " · " + browser : p.platform;
+  }
+
+  // Everything else the browser is willing to tell us. Unsupported APIs are skipped.
+  function collectInfo() {
+    const p = parseUA();
+    const info = {
+      os: p.os,
+      osVersion: p.osVersion,
+      browser: p.browser,
+      deviceType: p.deviceType,
+      visibility: document.visibilityState || ""
+    };
+    if (uaHints && uaHints.model) info.model = uaHints.model;
+    if (window.screen) {
+      info.screenW = screen.width || 0;
+      info.screenH = screen.height || 0;
+    }
+    if (window.devicePixelRatio) info.pixelRatio = Math.round(window.devicePixelRatio * 100) / 100;
+    if (navigator.hardwareConcurrency) info.cores = navigator.hardwareConcurrency;
+    if (navigator.deviceMemory) info.memoryGB = navigator.deviceMemory;
+    if (navigator.maxTouchPoints) info.maxTouchPoints = navigator.maxTouchPoints;
+    if (navigator.language) info.language = navigator.language;
+    try {
+      info.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch (e) {}
+    const conn = navigator.connection;
+    if (conn) {
+      if (conn.effectiveType) info.netType = conn.effectiveType;
+      if (conn.downlink) info.downlink = conn.downlink;
+      if (conn.rtt) info.rtt = conn.rtt;
+      if (conn.saveData) info.saveData = true;
+    }
+    return info;
   }
 
   const deviceId = getDeviceId();
@@ -421,7 +534,8 @@
       supported: batterySupported,
       level: batterySupported ? lastLevel : null,
       charging: batterySupported ? lastCharging : null,
-      userAgent: navigator.userAgent
+      userAgent: navigator.userAgent,
+      info: collectInfo()
     };
     fetch("/api/battery", {
       method: "POST",
@@ -472,11 +586,83 @@
     }
   }
 
+  // Server clock minus local clock, so relative times don't depend on device clock skew.
+  let clockOffset = 0;
+  let lastDevices = null;
+  const openInfo = new Set();
+
+  function secondsSince(iso) {
+    return Math.max(0, (Date.now() + clockOffset - new Date(iso).getTime()) / 1000);
+  }
+
+  function formatDuration(sec) {
+    sec = Math.floor(sec);
+    if (sec < 60) return sec + "초";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + "분";
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr + "시간" + (min % 60 ? " " + (min % 60) + "분" : "");
+    return Math.floor(hr / 24) + "일";
+  }
+
   function formatAgo(iso) {
-    const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    const diff = secondsSince(iso);
     if (diff < 5) return "방금 전";
-    if (diff < 60) return Math.floor(diff) + "초 전";
-    return Math.floor(diff / 60) + "분 전";
+    return formatDuration(diff) + " 전";
+  }
+
+  const DEVICE_TYPE_LABEL = { desktop: "데스크톱", mobile: "모바일", tablet: "태블릿" };
+
+  function infoRows(d) {
+    const i = d.info || {};
+    const rows = [];
+    function add(label, value) {
+      if (value) rows.push([label, value]);
+    }
+    add("운영체제", [i.os, i.osVersion].filter(Boolean).join(" "));
+    add("모델", i.model);
+    add("브라우저", i.browser);
+    add("기기 유형", DEVICE_TYPE_LABEL[i.deviceType] || i.deviceType);
+    if (i.screenW && i.screenH) {
+      add("화면", i.screenW + "×" + i.screenH + (i.pixelRatio && i.pixelRatio !== 1 ? " @" + i.pixelRatio + "x" : ""));
+    }
+    if (i.cores) add("CPU", i.cores + "코어");
+    if (i.memoryGB) add("메모리", (i.memoryGB >= 8 ? "8GB 이상" : "약 " + i.memoryGB + "GB"));
+    if (i.maxTouchPoints) add("터치", "지원 (" + i.maxTouchPoints + "점)");
+    const net = [];
+    if (i.netType) net.push(i.netType.toUpperCase());
+    if (i.downlink) net.push("~" + i.downlink + "Mbps");
+    if (i.rtt) net.push(i.rtt + "ms");
+    if (i.saveData) net.push("데이터 절약");
+    add("네트워크", net.join(" · "));
+    add("언어", i.language);
+    add("시간대", i.timezone);
+    return rows;
+  }
+
+  function renderInfoGrid(rows) {
+    return '<dl class="info-grid">' + rows.map(function (r) {
+      return '<dt>' + escapeHtml(r[0]) + '</dt><dd>' + escapeHtml(r[1]) + '</dd>';
+    }).join("") + '</dl>';
+  }
+
+  function renderPresence(d) {
+    let pill, sub;
+    if (d.online) {
+      pill = '<span class="pill online"><span class="status-dot live"></span>실시간 연결됨</span>';
+      sub = d.connectedAt ? "접속 " + formatDuration(secondsSince(d.connectedAt)) + "째" : "";
+    } else {
+      pill = '<span class="pill offline"><span class="status-dot"></span>오프라인</span>';
+      sub = "마지막 접속 " + formatAgo(d.lastSeen || d.updatedAt);
+    }
+    let vis = "";
+    if (d.online && d.info && d.info.visibility) {
+      vis = d.info.visibility === "visible"
+        ? '<span class="pill">👀 화면 보는 중</span>'
+        : '<span class="pill">💤 백그라운드</span>';
+    }
+    return '<div class="presence-row">' + pill + vis +
+      (sub ? '<span class="presence-sub">' + escapeHtml(sub) + '</span>' : '') + '</div>';
   }
 
   function levelColor(pct) {
@@ -486,14 +672,17 @@
   }
 
   function render(devices) {
+    lastDevices = devices;
     if (!devices || devices.length === 0) {
       grid.innerHTML = '<div class="empty glass">연결된 기기가 없습니다. 잠시만 기다려주세요…</div>';
       return;
     }
     grid.innerHTML = devices.map(function (d) {
       const isMe = d.id === deviceId;
-      let levelBlock;
-      if (d.supported && d.level !== null && d.level !== undefined) {
+      const hasBattery = d.supported && d.level !== null && d.level !== undefined;
+      const rows = infoRows(d);
+      let levelBlock, infoBlock = "";
+      if (hasBattery) {
         const pct = Math.round(d.level * 100);
         const color = levelColor(pct);
         const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중">⚡</span>' : "";
@@ -503,22 +692,48 @@
             '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
             chargeIcon +
           '</div>';
+        if (rows.length) {
+          infoBlock = '<details class="info" data-id="' + escapeHtml(d.id) + '"' + (openInfo.has(d.id) ? ' open' : '') + '>' +
+            '<summary>기기 정보</summary>' + renderInfoGrid(rows) + '</details>';
+        }
       } else {
-        levelBlock = '<div class="unsupported">이 브라우저는 배터리 정보를 지원하지 않습니다</div>';
+        // No battery (desktop PC etc.) or the browser doesn't expose it:
+        // show connection status and whatever else we could collect instead.
+        levelBlock = '<div class="unsupported">🔌 배터리 정보 없음 — 배터리가 없거나 이 브라우저가 제공하지 않아요</div>';
+        if (rows.length) infoBlock = renderInfoGrid(rows);
       }
+      const i = d.info || {};
+      const summary = [[i.os, i.osVersion].filter(Boolean).join(" "), i.browser].filter(Boolean).join(" · ");
       const safeName = escapeHtml(d.name || "Unknown device");
       const safeUa = escapeHtml(d.userAgent || "");
       return (
-        '<div class="device glass' + (isMe ? ' me' : '') + '">' +
+        '<div class="device glass' + (isMe ? ' me' : '') + (d.online ? '' : ' offline') + '">' +
           (isMe ? '<span class="me-tag">이 기기</span>' : '') +
           '<div class="name">' + safeName + '</div>' +
-          '<div class="ua">' + safeUa + '</div>' +
+          '<div class="ua" title="' + safeUa + '">' + (summary ? escapeHtml(summary) : safeUa) + '</div>' +
+          renderPresence(d) +
           levelBlock +
+          infoBlock +
           '<div class="meta-row"><span>' + formatAgo(d.updatedAt) + ' 업데이트</span></div>' +
         '</div>'
       );
     }).join("");
   }
+
+  // Remember which "기기 정보" panels are expanded across re-renders.
+  // Recorded on click (not "toggle", which fires async and can race a re-render).
+  grid.addEventListener("click", function (e) {
+    const summary = e.target.closest && e.target.closest("details.info > summary");
+    if (!summary) return;
+    const el = summary.parentElement;
+    if (el.open) openInfo.delete(el.dataset.id);
+    else openInfo.add(el.dataset.id);
+  });
+
+  // Keep relative times ("n초 전", "접속 n분째") fresh between server pushes.
+  setInterval(function () {
+    if (lastDevices && dashboard.style.display !== "none") render(lastDevices);
+  }, 5000);
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -528,7 +743,9 @@
 
   function connectStream() {
     if (eventSource) eventSource.close();
-    eventSource = new EventSource("/api/stream?roomId=" + encodeURIComponent(roomId));
+    // Passing deviceId makes this open stream our real-time presence signal.
+    eventSource = new EventSource("/api/stream?roomId=" + encodeURIComponent(roomId) +
+      "&deviceId=" + encodeURIComponent(deviceId));
     eventSource.onopen = function () {
       statusDot.classList.add("live");
     };
@@ -537,7 +754,9 @@
     };
     eventSource.onmessage = function (evt) {
       try {
-        render(JSON.parse(evt.data));
+        const snap = JSON.parse(evt.data);
+        if (snap.serverTime) clockOffset = new Date(snap.serverTime).getTime() - Date.now();
+        render(snap.devices);
       } catch (e) {}
     };
   }
@@ -558,10 +777,14 @@
       }
       sendUpdate();
     }, 10000);
+  }
 
-    window.addEventListener("beforeunload", function () {
-      leaveRoom(true);
-    });
+  // Closing the tab no longer removes the device: its stream drops, so other
+  // devices see it go offline (with "last seen") instead. "나가기" still removes it.
+  document.addEventListener("visibilitychange", sendUpdate);
+  window.addEventListener("online", sendUpdate);
+  if (navigator.connection && navigator.connection.addEventListener) {
+    navigator.connection.addEventListener("change", sendUpdate);
   }
 
   function tryJoin(id, name) {
