@@ -24,7 +24,6 @@ const (
 	// before it is dropped from the room.
 	offlineRetention = 10 * time.Minute
 	cleanupEvery     = 5 * time.Second
-	subChannelSize   = 4
 	maxInfoString    = 64
 )
 
@@ -114,16 +113,16 @@ type roomSnapshot struct {
 // Store holds all in-memory room/device state. Nothing here is persisted to disk.
 type Store struct {
 	mu       sync.Mutex
-	rooms    map[string]map[string]*Device       // roomID -> deviceID -> device
-	presence map[string]map[string]*presence     // roomID -> deviceID -> presence
-	subs     map[string]map[chan []byte]struct{} // roomID -> set of subscriber channels
+	rooms    map[string]map[string]*Device         // roomID -> deviceID -> device
+	presence map[string]map[string]*presence       // roomID -> deviceID -> presence
+	subs     map[string]map[chan struct{}]struct{} // roomID -> set of subscriber channels
 }
 
 func newStore() *Store {
 	return &Store{
 		rooms:    make(map[string]map[string]*Device),
 		presence: make(map[string]map[string]*presence),
-		subs:     make(map[string]map[chan []byte]struct{}),
+		subs:     make(map[string]map[chan struct{}]struct{}),
 	}
 }
 
@@ -249,18 +248,18 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 	return roomSnapshot{ServerTime: now, Devices: list}
 }
 
-func (s *Store) subscribe(roomID string) chan []byte {
-	ch := make(chan []byte, subChannelSize)
+func (s *Store) subscribe(roomID string) chan struct{} {
+	ch := make(chan struct{}, 1)
 	s.mu.Lock()
 	if s.subs[roomID] == nil {
-		s.subs[roomID] = make(map[chan []byte]struct{})
+		s.subs[roomID] = make(map[chan struct{}]struct{})
 	}
 	s.subs[roomID][ch] = struct{}{}
 	s.mu.Unlock()
 	return ch
 }
 
-func (s *Store) unsubscribe(roomID string, ch chan []byte) {
+func (s *Store) unsubscribe(roomID string, ch chan struct{}) {
 	s.mu.Lock()
 	if set, ok := s.subs[roomID]; ok {
 		delete(set, ch)
@@ -272,13 +271,9 @@ func (s *Store) unsubscribe(roomID string, ch chan []byte) {
 }
 
 func (s *Store) broadcast(roomID string) {
-	payload, err := json.Marshal(s.snapshot(roomID))
-	if err != nil {
-		return
-	}
 	s.mu.Lock()
 	set := s.subs[roomID]
-	chans := make([]chan []byte, 0, len(set))
+	chans := make([]chan struct{}, 0, len(set))
 	for ch := range set {
 		chans = append(chans, ch)
 	}
@@ -286,17 +281,8 @@ func (s *Store) broadcast(roomID string) {
 
 	for _, ch := range chans {
 		select {
-		case ch <- payload:
+		case ch <- struct{}{}:
 		default:
-			// Slow subscriber: drop the stale message, keep only the latest.
-			select {
-			case <-ch:
-			default:
-			}
-			select {
-			case ch <- payload:
-			default:
-			}
 		}
 	}
 }
@@ -442,7 +428,12 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case payload := <-ch:
+			case <-ch:
+				payload, err := json.Marshal(store.snapshot(roomID))
+				if err != nil {
+					log.Printf("failed to marshal snapshot: %v", err)
+					continue
+				}
 				w.Write([]byte("data: "))
 				w.Write(payload)
 				w.Write([]byte("\n\n"))
