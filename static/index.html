@@ -299,7 +299,13 @@
     display: flex; align-items: center; gap: 10px;
     margin-top: 18px;
   }
-  .level-pct { font-size: 26px; font-weight: 700; min-width: 62px; letter-spacing: -0.5px; }
+  .level-pct {
+    font-size: 26px;
+    font-weight: 700;
+    min-width: 100px;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
   .bar-track {
     flex: 1; height: 10px; border-radius: 6px;
     background: rgba(127,127,127,0.18);
@@ -308,7 +314,6 @@
   }
   .bar-fill {
     height: 100%; border-radius: 6px;
-    transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
   }
   .charging-icon { font-size: 16px; filter: drop-shadow(0 0 6px rgba(255,194,71,0.6)); }
@@ -596,6 +601,9 @@
   let lastDevices = null;
   const openInfo = new Set();
 
+  // Track battery level history for interpolation
+  const levelTracker = {};
+
   function secondsSince(iso) {
     return Math.max(0, (Date.now() + clockOffset - new Date(iso).getTime()) / 1000);
   }
@@ -682,19 +690,36 @@
       grid.innerHTML = '<div class="empty glass">연결된 기기가 없습니다. 잠시만 기다려주세요…</div>';
       return;
     }
+
+    // Update trackers
+    const now = Date.now();
+    devices.forEach(function (d) {
+      const hasBattery = d.supported && d.level !== null && d.level !== undefined;
+      if (hasBattery) {
+        const tr = levelTracker[d.id] || {};
+        if (tr.level !== d.level || tr.charging !== d.charging) {
+          tr.level = d.level;
+          tr.charging = d.charging;
+          tr.changedAt = now;
+        }
+        levelTracker[d.id] = tr;
+      }
+    });
+
     grid.innerHTML = devices.map(function (d) {
       const isMe = d.id === deviceId;
       const hasBattery = d.supported && d.level !== null && d.level !== undefined;
       const rows = infoRows(d);
       let levelBlock, infoBlock = "";
       if (hasBattery) {
+        // Just render the skeleton for the animation loop to pick up.
         const pct = Math.round(d.level * 100);
         const color = levelColor(pct);
         const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중">⚡</span>' : "";
         levelBlock =
-          '<div class="level-row">' +
-            '<div class="level-pct" style="color:' + color + '">' + pct + '%</div>' +
-            '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+          '<div class="level-row" data-device-id="' + escapeHtml(d.id) + '">' +
+            '<div class="level-pct" style="color:' + color + '"></div>' +
+            '<div class="bar-track"><div class="bar-fill" style="background:' + color + '"></div></div>' +
             chargeIcon +
           '</div>';
         if (rows.length) {
@@ -739,6 +764,59 @@
   setInterval(function () {
     if (lastDevices && dashboard.style.display !== "none") render(lastDevices);
   }, 5000);
+
+  function animationLoop() {
+    requestAnimationFrame(animationLoop);
+    if (dashboard.style.display === "none") return;
+
+    const now = Date.now();
+    const rows = document.querySelectorAll(".level-row[data-device-id]");
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const id = row.getAttribute("data-device-id");
+      const tr = levelTracker[id];
+      if (!tr) continue;
+
+      const baseLevel = tr.level;
+      let fakeDecimals = 0;
+
+      // If fully charged or completely empty, don't fake decimals.
+      if (baseLevel < 1.0 && baseLevel > 0.0) {
+        const elapsed = (now - (tr.changedAt || now)) / 1000;
+
+        if (tr.charging) {
+          // Asymptotically approach 0.99 added to the base percentage.
+          // 1 - exp(-k * t) approaches 1 as t increases.
+          // Using a small k means it grows slowly.
+          const k = 0.005;
+          fakeDecimals = 0.99 * (1 - Math.exp(-k * elapsed));
+        } else {
+          // Discharging: simulate a drop. Since we only know the current level,
+          // we can assume it starts at level + 0.99 and slowly drops to level + 0.00.
+          // However, to make it realistic from when we loaded, we just guess it's slowly dropping.
+          // Since level is e.g. 0.85, the true percentage is somewhere between 85.00 and 85.99.
+          // If we want it to decrease, we can start at 0.99 and drop.
+          // Let's have it slowly drain.
+          const k = 0.001;
+          fakeDecimals = 0.99 * Math.exp(-k * elapsed);
+        }
+      }
+
+      // If battery is 100% (1.0) and charging, or 0% (0.0), fakeDecimals is 0.
+      let val = Math.round(baseLevel * 100) + fakeDecimals;
+      // Clamp just in case.
+      if (val >= 100) val = 100;
+      if (val < 0) val = 0;
+
+      const pctEl = row.querySelector(".level-pct");
+      const barEl = row.querySelector(".bar-fill");
+      if (pctEl && barEl) {
+        pctEl.textContent = val.toFixed(2) + "%";
+        barEl.style.width = val.toFixed(2) + "%";
+      }
+    }
+  }
+  requestAnimationFrame(animationLoop);
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
