@@ -112,17 +112,19 @@ type roomSnapshot struct {
 
 // Store holds all in-memory room/device state. Nothing here is persisted to disk.
 type Store struct {
-	mu       sync.Mutex
-	rooms    map[string]map[string]*Device         // roomID -> deviceID -> device
-	presence map[string]map[string]*presence       // roomID -> deviceID -> presence
-	subs     map[string]map[chan struct{}]struct{} // roomID -> set of subscriber channels
+	mu          sync.Mutex
+	rooms       map[string]map[string]*Device       // roomID -> deviceID -> device
+	presence    map[string]map[string]*presence     // roomID -> deviceID -> presence
+	subs        map[string]map[chan []byte]struct{} // roomID -> set of subscriber channels
+	broadcastCh map[string]chan struct{}            // roomID -> channel to trigger a room broadcast
 }
 
 func newStore() *Store {
 	return &Store{
-		rooms:    make(map[string]map[string]*Device),
-		presence: make(map[string]map[string]*presence),
-		subs:     make(map[string]map[chan struct{}]struct{}),
+		rooms:       make(map[string]map[string]*Device),
+		presence:    make(map[string]map[string]*presence),
+		subs:        make(map[string]map[chan []byte]struct{}),
+		broadcastCh: make(map[string]chan struct{}),
 	}
 }
 
@@ -248,18 +250,18 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 	return roomSnapshot{ServerTime: now, Devices: list}
 }
 
-func (s *Store) subscribe(roomID string) chan struct{} {
-	ch := make(chan struct{}, 1)
+func (s *Store) subscribe(roomID string) chan []byte {
+	ch := make(chan []byte, 1)
 	s.mu.Lock()
 	if s.subs[roomID] == nil {
-		s.subs[roomID] = make(map[chan struct{}]struct{})
+		s.subs[roomID] = make(map[chan []byte]struct{})
 	}
 	s.subs[roomID][ch] = struct{}{}
 	s.mu.Unlock()
 	return ch
 }
 
-func (s *Store) unsubscribe(roomID string, ch chan struct{}) {
+func (s *Store) unsubscribe(roomID string, ch chan []byte) {
 	s.mu.Lock()
 	if set, ok := s.subs[roomID]; ok {
 		delete(set, ch)
@@ -270,20 +272,53 @@ func (s *Store) unsubscribe(roomID string, ch chan struct{}) {
 	s.mu.Unlock()
 }
 
+func (s *Store) broadcaster(roomID string, ch chan struct{}) {
+	for range ch {
+		payload, err := json.Marshal(s.snapshot(roomID))
+		if err != nil {
+			log.Printf("failed to marshal snapshot during broadcast: %v", err)
+			continue
+		}
+
+		s.mu.Lock()
+		set := s.subs[roomID]
+		chans := make([]chan []byte, 0, len(set))
+		for sub := range set {
+			chans = append(chans, sub)
+		}
+		s.mu.Unlock()
+
+		for _, sub := range chans {
+			select {
+			case sub <- payload:
+			default:
+				// Channel full: drain the old state and replace with the newest state
+				select {
+				case <-sub:
+				default:
+				}
+				select {
+				case sub <- payload:
+				default:
+				}
+			}
+		}
+	}
+}
+
 func (s *Store) broadcast(roomID string) {
 	s.mu.Lock()
-	set := s.subs[roomID]
-	chans := make([]chan struct{}, 0, len(set))
-	for ch := range set {
-		chans = append(chans, ch)
+	ch, ok := s.broadcastCh[roomID]
+	if !ok {
+		ch = make(chan struct{}, 1)
+		s.broadcastCh[roomID] = ch
+		go s.broadcaster(roomID, ch)
 	}
 	s.mu.Unlock()
 
-	for _, ch := range chans {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
+	select {
+	case ch <- struct{}{}:
+	default:
 	}
 }
 
@@ -428,12 +463,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ch:
-				payload, err := json.Marshal(store.snapshot(roomID))
-				if err != nil {
-					log.Printf("failed to marshal snapshot: %v", err)
-					continue
-				}
+			case payload := <-ch:
 				w.Write([]byte("data: "))
 				w.Write(payload)
 				w.Write([]byte("\n\n"))
