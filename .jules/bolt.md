@@ -1,3 +1,3 @@
-## 2023-10-24 - SSE Broadcasting Bottleneck
-**Learning:** The initial Server-Sent Events (SSE) implementation broadcasted an empty `struct{}` to wake up subscriber goroutines, forcing each of them to independently acquire the store lock, copy and sort the state, and run `json.Marshal(store.snapshot())`. This codebase-specific pattern caused severe lock contention and O(N) redundant JSON marshaling per event.
-**Action:** When working with Go SSE fan-out, always pre-marshal the JSON payload once in the broadcaster (while holding the lock to prevent race conditions) and send the `[]byte` via channels to subscribers to avoid O(N) processing.
+## 2024-10-03 - Floating Point Precision with Math.floor()
+**Learning:** Using `Math.floor(x * 100)` for percentages like `0.29 * 100` results in `28` because `0.29 * 100` in Javascript evaluates to `28.999999999999996`.
+**Action:** Use `Math.round(x * 100)` or add an epsilon `Math.floor(x * 100 + 0.1)` instead of blindly flooring when converting decimal fractions to integers in JavaScript.
