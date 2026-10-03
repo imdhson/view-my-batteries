@@ -66,17 +66,19 @@ func (i *DeviceInfo) sanitize() {
 
 // Device represents the latest known state of a single device.
 type Device struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Level       *float64   `json:"level"`
-	Charging    *bool      `json:"charging"`
-	Supported   bool       `json:"supported"`
-	UserAgent   string     `json:"userAgent"`
-	Info        DeviceInfo `json:"info"`
-	Online      bool       `json:"online"`
-	ConnectedAt *time.Time `json:"connectedAt,omitempty"`
-	LastSeen    time.Time  `json:"lastSeen"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Level           *float64   `json:"level"`
+	Charging        *bool      `json:"charging"`
+	ChargingTime    *float64   `json:"chargingTime"`
+	DischargingTime *float64   `json:"dischargingTime"`
+	Supported       bool       `json:"supported"`
+	UserAgent       string     `json:"userAgent"`
+	Info            DeviceInfo `json:"info"`
+	Online          bool       `json:"online"`
+	ConnectedAt     *time.Time `json:"connectedAt,omitempty"`
+	LastSeen        time.Time  `json:"lastSeen"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
 
 	lastOnline bool // online state as of the last snapshot
 }
@@ -90,14 +92,16 @@ type presence struct {
 }
 
 type deviceUpdate struct {
-	RoomID    string     `json:"roomId"`
-	DeviceID  string     `json:"deviceId"`
-	Name      string     `json:"name"`
-	Level     *float64   `json:"level"`
-	Charging  *bool      `json:"charging"`
-	Supported bool       `json:"supported"`
-	UserAgent string     `json:"userAgent"`
-	Info      DeviceInfo `json:"info"`
+	RoomID          string     `json:"roomId"`
+	DeviceID        string     `json:"deviceId"`
+	Name            string     `json:"name"`
+	Level           *float64   `json:"level"`
+	Charging        *bool      `json:"charging"`
+	ChargingTime    *float64   `json:"chargingTime"`
+	DischargingTime *float64   `json:"dischargingTime"`
+	Supported       bool       `json:"supported"`
+	UserAgent       string     `json:"userAgent"`
+	Info            DeviceInfo `json:"info"`
 }
 
 type leaveRequest struct {
@@ -155,14 +159,16 @@ func (s *Store) upsert(u deviceUpdate) {
 		s.rooms[u.RoomID] = room
 	}
 	room[u.DeviceID] = &Device{
-		ID:        u.DeviceID,
-		Name:      u.Name,
-		Level:     u.Level,
-		Charging:  u.Charging,
-		Supported: u.Supported,
-		UserAgent: u.UserAgent,
-		Info:      u.Info,
-		UpdatedAt: time.Now(),
+		ID:              u.DeviceID,
+		Name:            u.Name,
+		Level:           u.Level,
+		Charging:        u.Charging,
+		ChargingTime:    u.ChargingTime,
+		DischargingTime: u.DischargingTime,
+		Supported:       u.Supported,
+		UserAgent:       u.UserAgent,
+		Info:            u.Info,
+		UpdatedAt:       time.Now(),
 	}
 	s.mu.Unlock()
 	s.broadcast(u.RoomID)

@@ -317,6 +317,12 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
   }
   .charging-icon { font-size: 16px; filter: drop-shadow(0 0 6px rgba(255,194,71,0.6)); }
+  .battery-time {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 6px;
+  }
   .meta-row {
     display: flex; justify-content: space-between;
     margin-top: 14px; font-size: 12px; color: var(--muted-2);
@@ -533,10 +539,14 @@
   let heartbeatTimer = null;
   let lastLevel = null;
   let lastCharging = null;
+  let lastChargingTime = null;
+  let lastDischargingTime = null;
   let batterySupported = false;
 
   function sendUpdate() {
     if (!roomId) return;
+    let cTime = lastChargingTime === Infinity ? -1 : lastChargingTime;
+    let dTime = lastDischargingTime === Infinity ? -1 : lastDischargingTime;
     const body = {
       roomId: roomId,
       deviceId: deviceId,
@@ -544,6 +554,8 @@
       supported: batterySupported,
       level: batterySupported ? lastLevel : null,
       charging: batterySupported ? lastCharging : null,
+      chargingTime: batterySupported ? cTime : null,
+      dischargingTime: batterySupported ? dTime : null,
       userAgent: navigator.userAgent,
       info: collectInfo()
     };
@@ -558,6 +570,8 @@
     if (!batteryManager) return;
     lastLevel = batteryManager.level;
     lastCharging = batteryManager.charging;
+    lastChargingTime = batteryManager.chargingTime;
+    lastDischargingTime = batteryManager.dischargingTime;
     sendUpdate();
   }
 
@@ -568,8 +582,12 @@
         batterySupported = true;
         lastLevel = bm.level;
         lastCharging = bm.charging;
+        lastChargingTime = bm.chargingTime;
+        lastDischargingTime = bm.dischargingTime;
         bm.addEventListener("levelchange", onBatteryChange);
         bm.addEventListener("chargingchange", onBatteryChange);
+        bm.addEventListener("chargingtimechange", onBatteryChange);
+        bm.addEventListener("dischargingtimechange", onBatteryChange);
         sendUpdate();
       }).catch(function () {
         batterySupported = false;
@@ -716,12 +734,27 @@
         const pct = Math.round(d.level * 100);
         const color = levelColor(pct);
         const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중">⚡</span>' : "";
+        let timeText = "";
+        if (d.charging) {
+          if (d.chargingTime === 0 || d.level === 1) timeText = "충전 완료됨";
+          else if (d.chargingTime === -1) timeText = "예상 시간 계산 중...";
+          else if (d.chargingTime != null) timeText = "완충까지 약 " + formatDuration(d.chargingTime) + " 남음";
+        } else {
+          if (d.dischargingTime === -1) timeText = "예상 시간 계산 중...";
+          else if (d.dischargingTime != null) timeText = "방전까지 약 " + formatDuration(d.dischargingTime) + " 남음";
+        }
+
         levelBlock =
           '<div class="level-row" data-device-id="' + escapeHtml(d.id) + '">' +
             '<div class="level-pct" style="color:' + color + '"></div>' +
             '<div class="bar-track"><div class="bar-fill" style="background:' + color + '"></div></div>' +
             chargeIcon +
           '</div>';
+
+        if (timeText) {
+          levelBlock += '<div class="battery-time">' + escapeHtml(timeText) + '</div>';
+        }
+
         if (rows.length) {
           infoBlock = '<details class="info" data-id="' + escapeHtml(d.id) + '"' + (openInfo.has(d.id) ? ' open' : '') + '>' +
             '<summary>기기 정보</summary>' + renderInfoGrid(rows) + '</details>';
@@ -857,6 +890,8 @@
       if (batterySupported && batteryManager) {
         lastLevel = batteryManager.level;
         lastCharging = batteryManager.charging;
+        lastChargingTime = batteryManager.chargingTime;
+        lastDischargingTime = batteryManager.dischargingTime;
       }
       sendUpdate();
     }, 10000);
