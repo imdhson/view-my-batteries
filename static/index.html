@@ -621,6 +621,8 @@
 
   // Track battery level history for interpolation
   const levelTracker = {};
+  // Cache DOM nodes for the animation loop
+  let cachedAnimationRows = [];
 
   function secondsSince(iso) {
     return Math.max(0, (Date.now() + clockOffset - new Date(iso).getTime()) / 1000);
@@ -781,6 +783,15 @@
         '</div>'
       );
     }).join("");
+
+    // Cache DOM nodes for the animation loop
+    cachedAnimationRows = Array.from(document.querySelectorAll(".level-row[data-device-id]")).map(function (row) {
+      return {
+        id: row.getAttribute("data-device-id"),
+        pctEl: row.querySelector(".level-pct"),
+        barEl: row.querySelector(".bar-fill")
+      };
+    });
   }
 
   // Remember which "기기 정보" panels are expanded across re-renders.
@@ -803,10 +814,9 @@
     if (dashboard.style.display === "none") return;
 
     const now = Date.now();
-    const rows = document.querySelectorAll(".level-row[data-device-id]");
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const id = row.getAttribute("data-device-id");
+    for (let i = 0; i < cachedAnimationRows.length; i++) {
+      const rowData = cachedAnimationRows[i];
+      const id = rowData.id;
       const tr = levelTracker[id];
       if (!tr) continue;
 
@@ -841,11 +851,15 @@
       if (val >= 100) val = 100;
       if (val < 0) val = 0;
 
-      const pctEl = row.querySelector(".level-pct");
-      const barEl = row.querySelector(".bar-fill");
-      if (pctEl && barEl) {
-        pctEl.textContent = val.toFixed(2) + "%";
-        barEl.style.width = val.toFixed(2) + "%";
+      const valStr = val.toFixed(2) + "%";
+
+      // Avoid DOM writes if the value hasn't changed
+      if (tr.lastVal !== valStr) {
+        tr.lastVal = valStr;
+        if (rowData.pctEl && rowData.barEl) {
+          rowData.pctEl.textContent = valStr;
+          rowData.barEl.style.width = valStr;
+        }
       }
     }
   }
