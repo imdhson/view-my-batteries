@@ -369,6 +369,15 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "0")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	store := newStore()
 	go store.cleanupStale()
@@ -488,7 +497,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           secureHeaders(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
