@@ -691,10 +691,11 @@
     let pill, sub;
     if (d.online) {
       pill = '<span class="pill online"><span class="status-dot live"></span>실시간 연결됨</span>';
-      sub = d.connectedAt ? "접속 " + formatDuration(secondsSince(d.connectedAt)) + "째" : "";
+      sub = d.connectedAt ? '접속 <span data-time-connected="' + d.connectedAt + '">' + formatDuration(secondsSince(d.connectedAt)) + '</span>째' : "";
     } else {
       pill = '<span class="pill offline"><span class="status-dot"></span>오프라인</span>';
-      sub = "마지막 접속 " + formatAgo(d.lastSeen || d.updatedAt);
+      const timeStr = d.lastSeen || d.updatedAt;
+      sub = '마지막 접속 <span data-time-ago="' + timeStr + '">' + formatAgo(timeStr) + '</span>';
     }
     let vis = "";
     if (d.online && d.info && d.info.visibility) {
@@ -702,8 +703,9 @@
         ? '<span class="pill">👀 화면 보는 중</span>'
         : '<span class="pill">💤 백그라운드</span>';
     }
+    // We cannot escape HTML of sub anymore since it contains <span>
     return '<div class="presence-row">' + pill + vis +
-      (sub ? '<span class="presence-sub">' + escapeHtml(sub) + '</span>' : '') + '</div>';
+      (sub ? '<span class="presence-sub">' + sub + '</span>' : '') + '</div>';
   }
 
   function levelColor(pct) {
@@ -787,7 +789,7 @@
           renderPresence(d) +
           levelBlock +
           infoBlock +
-          '<div class="meta-row"><span>' + formatAgo(d.updatedAt) + ' 업데이트</span></div>' +
+          '<div class="meta-row"><span><span data-time-ago="' + escapeHtml(d.updatedAt) + '">' + escapeHtml(formatAgo(d.updatedAt)) + '</span> 업데이트</span></div>' +
         '</div>'
       );
     }).join("");
@@ -814,7 +816,23 @@
 
   // Keep relative times ("n초 전", "접속 n분째") fresh between server pushes.
   setInterval(function () {
-    if (lastDevices && dashboard.style.display !== "none") render(lastDevices);
+    if (dashboard.style.display === "none") return;
+    const timeAgoEls = document.querySelectorAll("[data-time-ago]");
+    for (let i = 0; i < timeAgoEls.length; i++) {
+      const el = timeAgoEls[i];
+      const newText = formatAgo(el.getAttribute("data-time-ago"));
+      if (el.textContent !== newText) {
+        el.textContent = newText;
+      }
+    }
+    const timeConnectedEls = document.querySelectorAll("[data-time-connected]");
+    for (let i = 0; i < timeConnectedEls.length; i++) {
+      const el = timeConnectedEls[i];
+      const newText = formatDuration(secondsSince(el.getAttribute("data-time-connected")));
+      if (el.textContent !== newText) {
+        el.textContent = newText;
+      }
+    }
   }, 5000);
 
   function animationLoop() {
