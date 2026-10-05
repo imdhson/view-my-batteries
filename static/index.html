@@ -915,7 +915,9 @@
         const snap = JSON.parse(evt.data);
         if (snap.serverTime) clockOffset = new Date(snap.serverTime).getTime() - Date.now();
         render(snap.devices);
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error parsing server message:", e);
+      }
     };
   }
 
