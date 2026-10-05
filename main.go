@@ -378,6 +378,30 @@ func secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
+func (s *Store) handleBattery(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var u deviceUpdate
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&u); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if !validID.MatchString(u.RoomID) || !validID.MatchString(u.DeviceID) {
+		http.Error(w, "invalid roomId or deviceId", http.StatusBadRequest)
+		return
+	}
+	if u.Name == "" {
+		u.Name = "Unknown device"
+	}
+	u.Name = clip(u.Name, 80)
+	u.UserAgent = clip(u.UserAgent, 200)
+	u.Info.sanitize()
+	s.upsert(u)
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func main() {
 	store := newStore()
 	go store.cleanupStale()
@@ -391,29 +415,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", fileServer)
 
-	mux.HandleFunc("/api/battery", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		var u deviceUpdate
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&u); err != nil {
-			http.Error(w, "invalid json", http.StatusBadRequest)
-			return
-		}
-		if !validID.MatchString(u.RoomID) || !validID.MatchString(u.DeviceID) {
-			http.Error(w, "invalid roomId or deviceId", http.StatusBadRequest)
-			return
-		}
-		if u.Name == "" {
-			u.Name = "Unknown device"
-		}
-		u.Name = clip(u.Name, 80)
-		u.UserAgent = clip(u.UserAgent, 200)
-		u.Info.sanitize()
-		store.upsert(u)
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-	})
+	mux.HandleFunc("/api/battery", store.handleBattery)
 
 	mux.HandleFunc("/api/leave", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
