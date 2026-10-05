@@ -734,6 +734,8 @@
           tr.charging = d.charging;
           tr.changedAt = now;
         }
+        // Force DOM update in animationLoop because the elements were just recreated.
+        tr.lastVal = null;
         levelTracker[d.id] = tr;
       }
     });
