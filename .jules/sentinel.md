@@ -7,3 +7,7 @@
 **Vulnerability:** Standard Go `net/http` servers do not set essential HTTP security headers like `X-Content-Type-Options`, `X-Frame-Options`, or `X-XSS-Protection` by default. This leaves the application susceptible to MIME-type sniffing, Clickjacking, and cross-site scripting attacks on older browsers.
 **Learning:** This repo lacked basic defense-in-depth protection because standard Go web apps rely entirely on manual configuration of middleware to insert required HTTP security headers.
 **Prevention:** Always implement a security middleware in any Go standard library `http.Server` to append baseline HTTP security headers (`nosniff`, `DENY` etc.) wrapping the main request multiplexer.
+## 2026-10-05 - Add Content Security Policy
+**Vulnerability:** Missing Content Security Policy (CSP) headers, allowing potential Cross-Site Scripting (XSS) and unrestricted content loading.
+**Learning:** The initial setup used standard security headers like X-XSS-Protection but lacked a robust CSP to restrict external scripts, styles, and connections.
+**Prevention:** Enforce a `Content-Security-Policy` header in web applications by default (`default-src 'self'`) and selectively allow required inline styles and scripts if unavoidable (`unsafe-inline`).
