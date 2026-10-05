@@ -187,9 +187,11 @@
     font-family: inherit;
   }
   button:focus-visible,
-  input:focus-visible {
+  input:focus-visible,
+  summary:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+    border-radius: 4px;
   }
   .btn-primary {
     width: 100%;
@@ -743,7 +745,7 @@
         // Just render the skeleton for the animation loop to pick up.
         const pct = Math.round(d.level * 100);
         const color = levelColor(pct);
-        const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중">⚡</span>' : "";
+        const chargeIcon = d.charging ? '<span class="charging-icon" title="충전 중" role="img" aria-label="충전 중">⚡</span>' : "";
         let timeText = "";
         if (d.charging) {
           if (d.chargingTime === 0 || d.level === 1) timeText = "충전 완료됨";

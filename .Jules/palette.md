@@ -4,3 +4,6 @@
 ## 2026-10-04 - Semantic Forms Improve Accessibility
 **Learning:** Custom keydown enter listeners are poor practice compared to wrapping inputs and buttons in semantic `<form>` tags and relying on native `submit` events. Not only does this fix screen reader form submission expectations, it enables robust mobile virtual keyboard features like 'Go' button submissions.
 **Action:** Always prefer native semantic HTML `<form>` elements with `submit` listeners instead of attaching individual `keydown` event listeners directly to input fields.
+## 2026-10-05 - Native Summary Element Focus Styling
+**Learning:** Native `<summary>` elements inside `<details>` accordions often lose their default focus visibility when placed inside highly stylized containers, making keyboard navigation difficult for accessibility users. They also default to a slightly unpolished focus box.
+**Action:** When using `<summary>`, explicitly define `:focus-visible` styles (sharing styles with buttons or inputs) and add a small border-radius for visual polish to ensure keyboard users can clearly see the focus state.
