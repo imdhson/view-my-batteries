@@ -460,7 +460,9 @@
       uaHints = h;
       cachedUA = null; // Clear cache to allow re-parsing with high-entropy hints
       sendUpdate();
-    }).catch(function () {});
+    }).catch(function (e) {
+      console.warn("Failed to get high entropy user agent values:", e);
+    });
   }
 
   function parseUA() {
@@ -583,7 +585,9 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
-    }).catch(function () {});
+    }).catch(function (e) {
+      console.warn("Failed to update battery status:", e);
+    });
   }
 
   function onBatteryChange() {
@@ -630,7 +634,9 @@
         headers: { "Content-Type": "application/json" },
         body: payload,
         keepalive: true
-      }).catch(function () {});
+      }).catch(function (e) {
+        console.warn("Failed to send leave request:", e);
+      });
     }
   }
 
