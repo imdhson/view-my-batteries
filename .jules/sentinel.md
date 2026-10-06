@@ -11,3 +11,8 @@
 **Vulnerability:** Missing Content Security Policy (CSP) headers, allowing potential Cross-Site Scripting (XSS) and unrestricted content loading.
 **Learning:** The initial setup used standard security headers like X-XSS-Protection but lacked a robust CSP to restrict external scripts, styles, and connections.
 **Prevention:** Enforce a `Content-Security-Policy` header in web applications by default (`default-src 'self'`) and selectively allow required inline styles and scripts if unavoidable (`unsafe-inline`).
+
+## 2026-10-06 - Missing Escaping for Time Strings and Colors in UI
+**Vulnerability:** Attributes like `data-time-connected`, `data-time-ago`, and styling like `color` in HTML templates were being directly interpolated without being escaped. Although currently safe due to their expected format and the backend implementation, it leaves an XSS risk if the sources for these become controllable or complex.
+**Learning:** Dynamic attributes or values rendered client-side must always be escaped because changes to backend data formatting or time inputs could lead to injection.
+**Prevention:** Always wrap all interpolated dynamic variables, including time strings, numbers, and generated strings like colors, in `escapeHtml` or equivalent functions during manual DOM rendering string generation.

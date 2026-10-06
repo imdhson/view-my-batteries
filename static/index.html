@@ -709,11 +709,11 @@
     let pill, sub;
     if (d.online) {
       pill = '<span class="pill online"><span class="status-dot live"></span>실시간 연결됨</span>';
-      sub = d.connectedAt ? '접속 <span data-time-connected="' + d.connectedAt + '">' + formatDuration(secondsSince(d.connectedAt)) + '</span>째' : "";
+      sub = d.connectedAt ? '접속 <span data-time-connected="' + escapeHtml(d.connectedAt) + '">' + formatDuration(secondsSince(d.connectedAt)) + '</span>째' : "";
     } else {
       pill = '<span class="pill offline"><span class="status-dot"></span>오프라인</span>';
       const timeStr = d.lastSeen || d.updatedAt;
-      sub = '마지막 접속 <span data-time-ago="' + timeStr + '">' + formatAgo(timeStr) + '</span>';
+      sub = '마지막 접속 <span data-time-ago="' + escapeHtml(timeStr) + '">' + formatAgo(timeStr) + '</span>';
     }
     let vis = "";
     if (d.online && d.info && d.info.visibility) {
