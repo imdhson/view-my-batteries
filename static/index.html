@@ -452,14 +452,20 @@
 
   // High-entropy client hints (Chromium only). Filled in asynchronously.
   let uaHints = null;
+  let cachedUA = null;
+  let cachedTimezone = null;
+
   if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
     navigator.userAgentData.getHighEntropyValues(["model", "platformVersion"]).then(function (h) {
       uaHints = h;
+      cachedUA = null; // Clear cache to allow re-parsing with high-entropy hints
       sendUpdate();
     }).catch(function () {});
   }
 
   function parseUA() {
+    if (cachedUA) return cachedUA;
+
     const ua = navigator.userAgent;
     const touch = navigator.maxTouchPoints || 0;
     let m;
@@ -498,7 +504,8 @@
     else if ((m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/))) browser = "Firefox " + m[1];
     else if (/Safari\//.test(ua)) browser = "Safari" + ((m = ua.match(/Version\/(\d+(?:\.\d+)?)/)) ? " " + m[1] : "");
 
-    return { platform: platform, os: os, osVersion: osVersion, deviceType: deviceType, browser: browser };
+    cachedUA = { platform: platform, os: os, osVersion: osVersion, deviceType: deviceType, browser: browser };
+    return cachedUA;
   }
 
   function guessDeviceName() {
@@ -528,7 +535,10 @@
     if (navigator.maxTouchPoints) info.maxTouchPoints = navigator.maxTouchPoints;
     if (navigator.language) info.language = navigator.language;
     try {
-      info.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      if (!cachedTimezone) {
+        cachedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      }
+      info.timezone = cachedTimezone;
     } catch (e) {}
     const conn = navigator.connection;
     if (conn) {
