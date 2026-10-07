@@ -34,6 +34,11 @@
       --text: #1b1e27;
       --muted: rgba(27, 30, 39, 0.62);
       --muted-2: rgba(27, 30, 39, 0.42);
+      --accent: #2563eb;
+      --accent-2: #6d28d9;
+      --green: #16a34a;
+      --yellow: #ca8a04;
+      --red: #dc2626;
       --glass-fill: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.22));
       --glass-fill-strong: linear-gradient(160deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
       --glass-border: rgba(255,255,255,0.6);
@@ -408,7 +413,7 @@
 <div id="dashboard">
   <div class="floating-bar glass" id="floating-bar">
     <div class="room-badge">
-      <span class="status-dot" id="status-dot"></span>
+      <span class="status-dot" id="status-dot" role="status" aria-label="오프라인" title="오프라인"></span>
       <span>ID: <strong id="room-label"></strong></span>
     </div>
     <button class="btn-leave" id="leave-btn">나가기</button>
@@ -708,10 +713,10 @@
   function renderPresence(d) {
     let pill, sub;
     if (d.online) {
-      pill = '<span class="pill online"><span class="status-dot live"></span>실시간 연결됨</span>';
-      sub = d.connectedAt ? '접속 <span data-time-connected="' + escapeHtml(d.connectedAt) + '">' + escapeHtml(formatDuration(secondsSince(d.connectedAt))) + '</span>째' : "";
+      pill = '<span class="pill online"><span class="status-dot live" role="status" aria-label="실시간 연결됨" title="실시간 연결됨"></span>실시간 연결됨</span>';
+      sub = d.connectedAt ? '접속 <span data-time-connected="' + escapeHtml(d.connectedAt) + '">' + formatDuration(secondsSince(d.connectedAt)) + '</span>째' : "";
     } else {
-      pill = '<span class="pill offline"><span class="status-dot"></span>오프라인</span>';
+      pill = '<span class="pill offline"><span class="status-dot" role="status" aria-label="오프라인" title="오프라인"></span>오프라인</span>';
       const timeStr = d.lastSeen || d.updatedAt;
       sub = '마지막 접속 <span data-time-ago="' + escapeHtml(timeStr) + '">' + escapeHtml(formatAgo(timeStr)) + '</span>';
     }
@@ -911,9 +916,10 @@
   }
   requestAnimationFrame(animationLoop);
 
+  const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      return ESCAPE_MAP[c];
     });
   }
 
@@ -924,9 +930,13 @@
       "&deviceId=" + encodeURIComponent(deviceId));
     eventSource.onopen = function () {
       statusDot.classList.add("live");
+      statusDot.setAttribute("aria-label", "실시간 연결됨");
+      statusDot.setAttribute("title", "실시간 연결됨");
     };
     eventSource.onerror = function () {
       statusDot.classList.remove("live");
+      statusDot.setAttribute("aria-label", "오프라인");
+      statusDot.setAttribute("title", "오프라인");
     };
     eventSource.onmessage = function (evt) {
       try {
