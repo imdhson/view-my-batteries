@@ -16,3 +16,7 @@
 **Vulnerability:** Attributes like `data-time-connected`, `data-time-ago`, and styling like `color` in HTML templates were being directly interpolated without being escaped. Although currently safe due to their expected format and the backend implementation, it leaves an XSS risk if the sources for these become controllable or complex.
 **Learning:** Dynamic attributes or values rendered client-side must always be escaped because changes to backend data formatting or time inputs could lead to injection.
 **Prevention:** Always wrap all interpolated dynamic variables, including time strings, numbers, and generated strings like colors, in `escapeHtml` or equivalent functions during manual DOM rendering string generation.
+## 2024-05-18 - Missing escapeHtml() wrapper around strings and colors injected in HTML
+**Vulnerability:** XSS vulnerability where generated strings from helper functions (like `formatDuration` or `formatAgo`) and dynamically chosen values like CSS colors (`color`) were not wrapped in `escapeHtml()` when concatenated into strings and written to the DOM via `innerHTML`.
+**Learning:** Even seemingly benign dynamic values (like time representations or CSS var names/colors derived from conditionals) must be escaped to prevent injection, as changes to those functions could introduce malicious inputs that then bypass existing XSS protections.
+**Prevention:** Always wrap all interpolated variable expressions in `escapeHtml()`, unless they are hard-coded static strings or explicitly sanitized immediately prior.
