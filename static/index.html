@@ -718,7 +718,7 @@
     } else {
       pill = '<span class="pill offline"><span class="status-dot" role="status" aria-label="오프라인" title="오프라인"></span>오프라인</span>';
       const timeStr = d.lastSeen || d.updatedAt;
-      sub = '마지막 접속 <span data-time-ago="' + escapeHtml(timeStr) + '">' + formatAgo(timeStr) + '</span>';
+      sub = '마지막 접속 <span data-time-ago="' + escapeHtml(timeStr) + '">' + escapeHtml(formatAgo(timeStr)) + '</span>';
     }
     let vis = "";
     if (d.online && d.info && d.info.visibility) {
@@ -783,8 +783,8 @@
 
         levelBlock =
           '<div class="level-row" data-device-id="' + escapeHtml(d.id) + '">' +
-            '<div class="level-pct" style="color:' + color + '"></div>' +
-            '<div class="bar-track" aria-hidden="true"><div class="bar-fill" style="background:' + color + '"></div></div>' +
+            '<div class="level-pct" style="color:' + escapeHtml(color) + '"></div>' +
+            '<div class="bar-track" aria-hidden="true"><div class="bar-fill" style="background:' + escapeHtml(color) + '"></div></div>' +
             chargeIcon +
           '</div>';
 
