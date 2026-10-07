@@ -13,3 +13,7 @@
 ## 2024-10-25 - Expensive JS Browser API Caching
 **Learning:** Calling APIs like `Intl.DateTimeFormat().resolvedOptions().timeZone` and iterating over multiple regexes for `navigator.userAgent` on a timer loop can take several milliseconds per execution, causing performance hiccups on low-end devices.
 **Action:** Always lazily evaluate and cache these expensive values (`cachedUA`, `cachedTimezone`) in variables within the Javascript client if they are unlikley to change during the session. Clear the cache only when specific async hints (`navigator.userAgentData.getHighEntropyValues`) resolve.
+
+## 2024-05-24 - Object Allocation in String.replace Callback
+**Learning:** Creating object literals inside the callback function of `String.prototype.replace` forces the JavaScript engine to allocate a new object for every single match found. In a rendering function (`render()`) that calls `escapeHtml()` repeatedly on many fields, this creates unnecessary GC thrashing.
+**Action:** Always extract static mapping objects outside of the `replace` callback and reuse the same instance, allowing the JS engine to optimize the property lookup without allocations.
