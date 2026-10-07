@@ -911,9 +911,10 @@
   }
   requestAnimationFrame(animationLoop);
 
+  const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      return ESCAPE_MAP[c];
     });
   }
 
