@@ -20,3 +20,7 @@
 **Vulnerability:** XSS vulnerability where generated strings from helper functions (like `formatDuration` or `formatAgo`) and dynamically chosen values like CSS colors (`color`) were not wrapped in `escapeHtml()` when concatenated into strings and written to the DOM via `innerHTML`.
 **Learning:** Even seemingly benign dynamic values (like time representations or CSS var names/colors derived from conditionals) must be escaped to prevent injection, as changes to those functions could introduce malicious inputs that then bypass existing XSS protections.
 **Prevention:** Always wrap all interpolated variable expressions in `escapeHtml()`, unless they are hard-coded static strings or explicitly sanitized immediately prior.
+## 2024-10-07 - Add missing HTML escaping for duration strings
+**Vulnerability:** XSS vulnerability where generated strings from helper functions (like `formatDuration` or `formatAgo`) were not wrapped in `escapeHtml()` when concatenated into strings and written to the DOM.
+**Learning:** Even seemingly benign dynamic values (like time representations) must be escaped to prevent injection, as changes to those functions could introduce malicious inputs that bypass existing XSS protections.
+**Prevention:** Always wrap all interpolated variable expressions in `escapeHtml()`, unless they are hard-coded static strings or explicitly sanitized immediately prior.
