@@ -917,10 +917,11 @@
   requestAnimationFrame(animationLoop);
 
   const ESCAPE_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  function getEscapedChar(c) {
+    return ESCAPE_MAP[c];
+  }
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return ESCAPE_MAP[c];
-    });
+    return String(s).replace(/[&<>"']/g, getEscapedChar);
   }
 
   function connectStream() {
