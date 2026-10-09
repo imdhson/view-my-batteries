@@ -20,3 +20,6 @@
 ## 2024-10-08 - Avoid Inline Callbacks in Frequent Replacements
 **Learning:** Inline callback functions passed to `String.prototype.replace` in highly-frequent rendering loops (like `escapeHtml` called for every variable in every DOM update) cause unnecessary object allocations and garbage collection overhead.
 **Action:** Extract the callback function alongside the static map to prevent re-allocation on every invocation.
+## 2024-10-26 - Keep sorting out of lock critical sections
+**Learning:** The entirely in-memory backend uses a single global `sync.Mutex` for all rooms. Keeping O(N log N) sorting logic inside the locked section causes unnecessary contention and could block other incoming connections and status updates.
+**Action:** Unlock the mutex as early as possible after copying the state before performing CPU-intensive work like `sort.Slice()`.
