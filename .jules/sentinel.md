@@ -24,3 +24,8 @@
 **Vulnerability:** XSS vulnerability where generated strings from helper functions (like `formatDuration` or `formatAgo`) were not wrapped in `escapeHtml()` when concatenated into strings and written to the DOM.
 **Learning:** Even seemingly benign dynamic values (like time representations) must be escaped to prevent injection, as changes to those functions could introduce malicious inputs that bypass existing XSS protections.
 **Prevention:** Always wrap all interpolated variable expressions in `escapeHtml()`, unless they are hard-coded static strings or explicitly sanitized immediately prior.
+
+## 2026-10-09 - Missing Content-Type Validation in JSON Endpoints
+**Vulnerability:** The JSON API endpoints (`/api/battery`, `/api/leave`) accepted POST requests without validating the `Content-Type` header, making them vulnerable to "Simple Request" Cross-Site Request Forgery (CSRF) via simple HTML forms using `text/plain`.
+**Learning:** `json.NewDecoder` parses valid JSON regardless of the declared HTTP `Content-Type`. Standard web forms cannot send cross-origin `application/json` without triggering a CORS preflight, but they can send `text/plain`. If an API blindly accepts it, CSRF is possible even without CORS misconfigurations.
+**Prevention:** Always enforce `Content-Type: application/json` on all POST endpoints designed to consume JSON by checking `strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")` to trigger a mandatory CORS preflight for cross-origin requests.
