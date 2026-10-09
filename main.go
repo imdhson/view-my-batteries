@@ -230,7 +230,6 @@ func (s *Store) detach(roomID, deviceID string) {
 func (s *Store) snapshot(roomID string) roomSnapshot {
 	now := time.Now()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	room := s.rooms[roomID]
 	list := make([]Device, 0, len(room))
 	for _, d := range room {
@@ -247,6 +246,9 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 		}
 		list = append(list, c)
 	}
+	// ⚡ Bolt: Unlock before sorting to reduce global lock contention
+	s.mu.Unlock()
+
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Name != list[j].Name {
 			return list[i].Name < list[j].Name
