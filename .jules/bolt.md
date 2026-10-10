@@ -23,3 +23,6 @@
 ## 2024-10-26 - Keep sorting out of lock critical sections
 **Learning:** The entirely in-memory backend uses a single global `sync.Mutex` for all rooms. Keeping O(N log N) sorting logic inside the locked section causes unnecessary contention and could block other incoming connections and status updates.
 **Action:** Unlock the mutex as early as possible after copying the state before performing CPU-intensive work like `sort.Slice()`.
+## 2024-10-10 - Unnecessary RegExp Extraction
+**Learning:** Avoid extracting inline literal regular expressions (e.g., `/[&<>"]/g`) into variables in JavaScript specifically for performance. Modern JavaScript engines (like V8) already perform inline regex literal caching natively, making this extraction a micro-optimization with no measurable impact.
+**Action:** Do not optimize inline regular expressions in JavaScript engines unless it can be proven they are recompiled unnecessarily in specific browsers. Look for more impactful backend optimizations first.
