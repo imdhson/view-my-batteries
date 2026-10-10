@@ -279,6 +279,7 @@ func (s *Store) unsubscribe(roomID string, ch chan []byte) {
 		}
 	}
 	s.mu.Unlock()
+	s.broadcast(roomID)
 }
 
 func (s *Store) broadcaster(roomID string, ch chan struct{}) {
@@ -335,7 +336,6 @@ func (s *Store) broadcast(roomID string) {
 		s.broadcastCh[roomID] = ch
 		go s.broadcaster(roomID, ch)
 	}
-	s.mu.Unlock()
 
 	select {
 	case ch <- struct{}{}:
