@@ -317,6 +317,18 @@ func (s *Store) broadcaster(roomID string, ch chan struct{}) {
 
 func (s *Store) broadcast(roomID string) {
 	s.mu.Lock()
+	// ⚡ Bolt: Cleanup empty rooms to prevent goroutine and memory leaks
+	if len(s.rooms[roomID]) == 0 && len(s.subs[roomID]) == 0 {
+		if ch, ok := s.broadcastCh[roomID]; ok {
+			close(ch)
+			delete(s.broadcastCh, roomID)
+		}
+		delete(s.rooms, roomID)
+		delete(s.presence, roomID)
+		s.mu.Unlock()
+		return
+	}
+
 	ch, ok := s.broadcastCh[roomID]
 	if !ok {
 		ch = make(chan struct{}, 1)
