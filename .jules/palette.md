@@ -8,3 +8,6 @@
 ## 2024-10-24 - Redundant ARIA Labels on Visual Indicators
 **Learning:** When a visual indicator (like a colored dot) is placed directly next to descriptive text (like "실시간 연결됨"), adding a `role="status"` and `aria-label` to the indicator causes screen readers to read the status twice.
 **Action:** Use `aria-hidden="true"` on visual indicators that accompany visible text to prevent redundant screen reader announcements. Add `aria-label` only when the indicator is the *sole* representation of the status.
+## 2024-10-10 - Preserving Keyboard Focus During Polled DOM Replacements
+**Learning:** When using polled Server-Sent Events (SSE) or WebSockets to re-render portions of the DOM continuously (e.g. `innerHTML` replacement), keyboard users lose focus if the active element is destroyed and recreated, severely breaking keyboard navigation accessibility.
+**Action:** Before replacing DOM structures containing interactive elements that might have focus (like `<summary>`), temporarily cache an identifier for the currently focused element (using `document.activeElement`). After the DOM replacement completes, query for the newly created identical element and restore its focus utilizing `.focus({ preventScroll: true })` to maintain uninterrupted keyboard accessibility and prevent confusing scroll-jumping behaviors.

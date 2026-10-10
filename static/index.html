@@ -744,6 +744,14 @@
       return;
     }
 
+    let focusedDetailsId = null;
+    if (document.activeElement && document.activeElement.tagName === "SUMMARY") {
+      const details = document.activeElement.closest("details.info");
+      if (details) {
+        focusedDetailsId = details.getAttribute("data-id");
+      }
+    }
+
     // Update trackers
     const now = Date.now();
     devices.forEach(function (d) {
@@ -818,6 +826,13 @@
         '</div>'
       );
     }).join("");
+
+    if (focusedDetailsId) {
+      // Escape quotes just in case, though device ids are usually safe UUIDs
+      const sel = 'details.info[data-id="' + focusedDetailsId.replace(/"/g, '\\"') + '"] > summary';
+      const toFocus = document.querySelector(sel);
+      if (toFocus) toFocus.focus({ preventScroll: true });
+    }
 
     // Cache DOM nodes for the animation loop
     cachedAnimationRows = Array.from(document.querySelectorAll(".level-row[data-device-id]")).map(function (row) {
