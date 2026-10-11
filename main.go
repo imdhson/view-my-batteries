@@ -525,6 +525,8 @@ func main() {
 		Addr:              addr,
 		Handler:           secureHeaders(mux),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	log.Printf("view-my-batteries listening on %s", addr)
