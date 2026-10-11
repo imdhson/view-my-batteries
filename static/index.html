@@ -397,7 +397,7 @@
 
 <div id="join-screen">
   <div class="join-card glass">
-    <h1>🔋 내 배터리 보기</h1>
+    <h1><span aria-hidden="true">🔋</span> 내 배터리 보기</h1>
     <div class="sub">ID를 입력하면 같은 ID를 쓰는 모든 기기의 배터리 상태를 실시간으로 볼 수 있어요.</div>
     <form id="join-form">
       <label for="room-input">내 ID <span style="color: var(--red);">*</span></label>
@@ -723,8 +723,8 @@
     let vis = "";
     if (d.online && d.info && d.info.visibility) {
       vis = d.info.visibility === "visible"
-        ? '<span class="pill">👀 화면 보는 중</span>'
-        : '<span class="pill">💤 백그라운드</span>';
+        ? '<span class="pill"><span aria-hidden="true">👀</span> 화면 보는 중</span>'
+        : '<span class="pill"><span aria-hidden="true">💤</span> 백그라운드</span>';
     }
     // We cannot escape HTML of sub anymore since it contains <span>
     return '<div class="presence-row">' + pill + vis +
@@ -791,8 +791,8 @@
 
         levelBlock =
           '<div class="level-row" data-device-id="' + escapeHtml(d.id) + '">' +
-            '<div class="level-pct" style="color:' + escapeHtml(color) + '"></div>' +
-            '<div class="bar-track" aria-hidden="true"><div class="bar-fill" style="background:' + escapeHtml(color) + '"></div></div>' +
+            '<div class="level-pct" aria-hidden="true" style="color:' + escapeHtml(color) + '"></div>' +
+            '<div class="bar-track" role="progressbar" aria-label="배터리 잔량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="bar-fill" style="background:' + escapeHtml(color) + '"></div></div>' +
             chargeIcon +
           '</div>';
 
@@ -807,7 +807,7 @@
       } else {
         // No battery (desktop PC etc.) or the browser doesn't expose it:
         // show connection status and whatever else we could collect instead.
-        levelBlock = '<div class="unsupported">🔌 배터리 정보 없음 — 배터리가 없거나 이 브라우저가 제공하지 않아요</div>';
+        levelBlock = '<div class="unsupported"><span aria-hidden="true">🔌</span> 배터리 정보 없음 — 배터리가 없거나 이 브라우저가 제공하지 않아요</div>';
         if (rows.length) infoBlock = renderInfoGrid(rows);
       }
       const i = d.info || {};
@@ -839,7 +839,8 @@
       return {
         id: row.getAttribute("data-device-id"),
         pctEl: row.querySelector(".level-pct"),
-        barEl: row.querySelector(".bar-fill")
+        barEl: row.querySelector(".bar-fill"),
+        trackEl: row.querySelector(".bar-track")
       };
     });
   }
@@ -925,6 +926,7 @@
         if (rowData.pctEl && rowData.barEl) {
           rowData.pctEl.textContent = valStr;
           rowData.barEl.style.width = valStr;
+          if (rowData.trackEl) rowData.trackEl.setAttribute("aria-valuenow", val.toFixed(2));
         }
       }
     }

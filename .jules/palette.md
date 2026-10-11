@@ -11,3 +11,7 @@
 ## 2024-10-10 - Preserving Keyboard Focus During Polled DOM Replacements
 **Learning:** When using polled Server-Sent Events (SSE) or WebSockets to re-render portions of the DOM continuously (e.g. `innerHTML` replacement), keyboard users lose focus if the active element is destroyed and recreated, severely breaking keyboard navigation accessibility.
 **Action:** Before replacing DOM structures containing interactive elements that might have focus (like `<summary>`), temporarily cache an identifier for the currently focused element (using `document.activeElement`). After the DOM replacement completes, query for the newly created identical element and restore its focus utilizing `.focus({ preventScroll: true })` to maintain uninterrupted keyboard accessibility and prevent confusing scroll-jumping behaviors.
+
+## 2024-10-24 - Screen Reader Spam from Rapid Polling DOM Updates
+**Learning:** For rapidly changing percentage indicators like live battery bars, screen readers will continuously announce text-content changes which causes severe spam and prevents reading other content. Exposing `.level-pct` raw text creates unmanageable auditory noise, whereas emojis used decoratively can add to that noise if not explicitly hidden (e.g., reading "두 눈" or "플러그").
+**Action:** Use `role="progressbar"` with `aria-valuenow` (and optionally update it dynamically with `setAttribute` in requestAnimationFrame) for continuous ranges, and explicitly hide noisy decorative text/emojis and the text-content of the percentage indicator using `aria-hidden="true"`.
