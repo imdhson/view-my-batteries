@@ -330,6 +330,18 @@ func (s *Store) broadcast(roomID string) {
 		return
 	}
 
+	// ⚡ Bolt: Skip expensive JSON serialization if no one is listening.
+	// But first, we must sync lastOnline to prevent cleanupStale from
+	// infinitely triggering broadcasts.
+	if len(s.subs[roomID]) == 0 {
+		now := time.Now()
+		for _, d := range s.rooms[roomID] {
+			d.lastOnline = s.isOnline(roomID, d, now)
+		}
+		s.mu.Unlock()
+		return
+	}
+
 	ch, ok := s.broadcastCh[roomID]
 	if !ok {
 		ch = make(chan struct{}, 1)

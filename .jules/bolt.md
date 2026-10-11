@@ -26,3 +26,6 @@
 ## 2024-10-10 - Unnecessary RegExp Extraction
 **Learning:** Avoid extracting inline literal regular expressions (e.g., `/[&<>"]/g`) into variables in JavaScript specifically for performance. Modern JavaScript engines (like V8) already perform inline regex literal caching natively, making this extraction a micro-optimization with no measurable impact.
 **Action:** Do not optimize inline regular expressions in JavaScript engines unless it can be proven they are recompiled unnecessarily in specific browsers. Look for more impactful backend optimizations first.
+## 2024-10-27 - Skip Expensive State Snapshots When Unobserved
+**Learning:** Generating JSON snapshots and sorting arrays in `broadcast()` for rooms that have no active subscribers is wasted CPU effort. `cleanupStale` forces a broadcast when a device drops offline, even if no one is watching the room.
+**Action:** Add an early return to `broadcast()` (e.g. `if len(s.subs[roomID]) == 0`) to skip generating snapshots when no SSE channels are connected. When doing this, ensure you still update any internal state (like `d.lastOnline`) that background tasks might rely on to prevent infinite broadcast loops.
