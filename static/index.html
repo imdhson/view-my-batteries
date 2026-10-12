@@ -792,7 +792,7 @@
         levelBlock =
           '<div class="level-row" data-device-id="' + escapeHtml(d.id) + '">' +
             '<div class="level-pct" aria-hidden="true" style="color:' + escapeHtml(color) + '"></div>' +
-            '<div class="bar-track" role="progressbar" aria-label="배터리 잔량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><div class="bar-fill" style="background:' + escapeHtml(color) + '"></div></div>' +
+            '<div class="bar-track" role="progressbar" aria-label="배터리 잔량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + escapeHtml(pct) + '"><div class="bar-fill" style="background:' + escapeHtml(color) + '"></div></div>' +
             chargeIcon +
           '</div>';
 
