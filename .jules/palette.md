@@ -15,3 +15,7 @@
 ## 2024-10-24 - Screen Reader Spam from Rapid Polling DOM Updates
 **Learning:** For rapidly changing percentage indicators like live battery bars, screen readers will continuously announce text-content changes which causes severe spam and prevents reading other content. Exposing `.level-pct` raw text creates unmanageable auditory noise, whereas emojis used decoratively can add to that noise if not explicitly hidden (e.g., reading "두 눈" or "플러그").
 **Action:** Use `role="progressbar"` with `aria-valuenow` (and optionally update it dynamically with `setAttribute` in requestAnimationFrame) for continuous ranges, and explicitly hide noisy decorative text/emojis and the text-content of the percentage indicator using `aria-hidden="true"`.
+
+## 2026-10-12 - Hide decorative asterisks from screen readers
+**Learning:** Decorative asterisks denoting required fields in forms can cause auditory clutter ("별표" or "asterisk") for screen reader users when announcing the input label. They should be explicitly hidden.
+**Action:** Add `aria-hidden="true"` to visual required indicators (`*`) within labels, ensuring the input itself correctly relies on `aria-required="true"` or the `required` attribute for accessibility.
