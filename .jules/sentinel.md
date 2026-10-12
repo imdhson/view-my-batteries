@@ -39,3 +39,7 @@
 **Vulnerability:** The standard Go `http.Server` instance lacked `ReadTimeout` and `IdleTimeout` configurations, making it vulnerable to resource exhaustion from slow clients (Slowloris attacks) keeping connections open indefinitely.
 **Learning:** Default Go HTTP servers do not enforce read or idle timeouts. An attacker can send requests extremely slowly (e.g., 1 byte every few seconds) or just hold connections open, exhausting the server's file descriptors and memory. While `ReadHeaderTimeout` was set, it only protects against slow headers, not slow bodies.
 **Prevention:** Always configure `ReadTimeout` and `IdleTimeout` on exposed Go HTTP servers. When dealing with SSE (which needs long-lived connections for writing), `ReadTimeout` ensures the request reading phase bounds memory/time, while the connection remains open for writing as long as headers are flushed.
+## 2023-10-12 - Strict escaping for numeric dynamic data
+**Vulnerability:** XSS risk due to unescaped numeric dynamic data (`pct`) being interpolated into the `aria-valuenow` attribute.
+**Learning:** Even data that is typically numeric (like battery percentage) should be strictly escaped when interpolated into HTML templates. A malicious actor could theoretically manipulate the `pct` value if it were derived from external or untrusted sources, leading to an XSS injection.
+**Prevention:** Always wrap all dynamic data, including numbers, in `escapeHtml()` when concatenating strings to generate HTML elements or attributes.
