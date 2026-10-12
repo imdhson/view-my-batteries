@@ -29,3 +29,6 @@
 ## 2024-10-27 - Skip Expensive State Snapshots When Unobserved
 **Learning:** Generating JSON snapshots and sorting arrays in `broadcast()` for rooms that have no active subscribers is wasted CPU effort. `cleanupStale` forces a broadcast when a device drops offline, even if no one is watching the room.
 **Action:** Add an early return to `broadcast()` (e.g. `if len(s.subs[roomID]) == 0`) to skip generating snapshots when no SSE channels are connected. When doing this, ensure you still update any internal state (like `d.lastOnline`) that background tasks might rely on to prevent infinite broadcast loops.
+## 2024-10-28 - Prefer slices.SortFunc over sort.Slice
+**Learning:** `sort.Slice` relies on interface boxing and runtime reflection to execute the comparison closure, resulting in slower execution times.
+**Action:** For Go 1.21+, use the generics-based `slices.SortFunc` (and `cmp.Compare` from the `cmp` package) for sorting. It avoids reflection overhead, leading to measurably faster execution, especially for arrays sorted within tight loops or performance-critical paths.
