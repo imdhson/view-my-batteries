@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"embed"
 	"encoding/json"
 	"io/fs"
@@ -8,7 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -250,11 +251,11 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 	// ⚡ Bolt: Unlock before sorting to reduce global lock contention
 	s.mu.Unlock()
 
-	sort.Slice(list, func(i, j int) bool {
-		if list[i].Name != list[j].Name {
-			return list[i].Name < list[j].Name
+	slices.SortFunc(list, func(a, b Device) int {
+		if a.Name != b.Name {
+			return cmp.Compare(a.Name, b.Name)
 		}
-		return list[i].ID < list[j].ID
+		return cmp.Compare(a.ID, b.ID)
 	})
 	return roomSnapshot{ServerTime: now, Devices: list}
 }
