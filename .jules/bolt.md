@@ -32,3 +32,7 @@
 ## 2024-10-28 - Prefer slices.SortFunc over sort.Slice
 **Learning:** `sort.Slice` relies on interface boxing and runtime reflection to execute the comparison closure, resulting in slower execution times.
 **Action:** For Go 1.21+, use the generics-based `slices.SortFunc` (and `cmp.Compare` from the `cmp` package) for sorting. It avoids reflection overhead, leading to measurably faster execution, especially for arrays sorted within tight loops or performance-critical paths.
+
+## 2024-10-31 - Avoid Heap Allocations on Frequent Map Upserts
+**Learning:** In a high-frequency polling/heartbeat endpoint, blindly reassigning a map value with a new pointer (e.g., `map[id] = &Struct{...}`) causes a heap allocation on every single request, significantly increasing garbage collection pressure.
+**Action:** Always check if the key already exists in the map and update the struct's fields in-place if it does, reusing the existing heap allocation.
