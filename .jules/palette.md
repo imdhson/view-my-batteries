@@ -19,3 +19,6 @@
 ## 2026-10-12 - Hide decorative asterisks from screen readers
 **Learning:** Decorative asterisks denoting required fields in forms can cause auditory clutter ("별표" or "asterisk") for screen reader users when announcing the input label. They should be explicitly hidden.
 **Action:** Add `aria-hidden="true"` to visual required indicators (`*`) within labels, ensuring the input itself correctly relies on `aria-required="true"` or the `required` attribute for accessibility.
+## 2024-05-24 - Room ID Sharing and Loading UX
+**Learning:** The lack of an optimistic loading state leaves users wondering if connection is working, and the absence of a copy button creates friction in a multi-device tool.
+**Action:** Added an immediate visual loading state before SSE connects and a clipboard copy button with clear accessible confirmation feedback.
