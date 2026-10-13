@@ -43,3 +43,8 @@
 **Vulnerability:** XSS risk due to unescaped numeric dynamic data (`pct`) being interpolated into the `aria-valuenow` attribute.
 **Learning:** Even data that is typically numeric (like battery percentage) should be strictly escaped when interpolated into HTML templates. A malicious actor could theoretically manipulate the `pct` value if it were derived from external or untrusted sources, leading to an XSS injection.
 **Prevention:** Always wrap all dynamic data, including numbers, in `escapeHtml()` when concatenating strings to generate HTML elements or attributes.
+
+## 2024-10-13 - Missing Map Capacity Limits (Resource Exhaustion DoS Risk)
+**Vulnerability:** Unbounded map growth in `s.rooms`, `s.presence`, and `s.subs` allowed attackers to exhaust server memory by creating infinite numbers of rooms, devices, or SSE connections, leading to a Denial of Service.
+**Learning:** In-memory state tracking for dynamic entities (like chat rooms or live devices) must always have enforced upper bounds. Standard Maps (`map[string]T`) in Go will grow indefinitely until the host crashes due to OOM (Out Of Memory).
+**Prevention:** Always implement explicit capacity checks (e.g., `len(s.rooms) >= maxRooms`) before adding new entries to globally shared in-memory collections, and return an appropriate error (e.g., HTTP 503) when capacity is reached.
