@@ -160,18 +160,34 @@ func (s *Store) upsert(u deviceUpdate) {
 		room = make(map[string]*Device)
 		s.rooms[u.RoomID] = room
 	}
-	room[u.DeviceID] = &Device{
-		ID:              u.DeviceID,
-		Name:            u.Name,
-		Level:           u.Level,
-		Charging:        u.Charging,
-		ChargingTime:    u.ChargingTime,
-		DischargingTime: u.DischargingTime,
-		Supported:       u.Supported,
-		UserAgent:       u.UserAgent,
-		Info:            u.Info,
-		UpdatedAt:       time.Now(),
+
+	// ⚡ Bolt: Update existing device struct in-place to avoid heap
+	// allocations on every heartbeat, reducing GC pressure.
+	if dev, exists := room[u.DeviceID]; exists {
+		dev.Name = u.Name
+		dev.Level = u.Level
+		dev.Charging = u.Charging
+		dev.ChargingTime = u.ChargingTime
+		dev.DischargingTime = u.DischargingTime
+		dev.Supported = u.Supported
+		dev.UserAgent = u.UserAgent
+		dev.Info = u.Info
+		dev.UpdatedAt = time.Now()
+	} else {
+		room[u.DeviceID] = &Device{
+			ID:              u.DeviceID,
+			Name:            u.Name,
+			Level:           u.Level,
+			Charging:        u.Charging,
+			ChargingTime:    u.ChargingTime,
+			DischargingTime: u.DischargingTime,
+			Supported:       u.Supported,
+			UserAgent:       u.UserAgent,
+			Info:            u.Info,
+			UpdatedAt:       time.Now(),
+		}
 	}
+
 	s.mu.Unlock()
 	s.broadcast(u.RoomID)
 }
