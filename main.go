@@ -27,6 +27,11 @@ const (
 	offlineRetention = 10 * time.Minute
 	cleanupEvery     = 5 * time.Second
 	maxInfoString    = 64
+
+	// Capacity limits to prevent Resource Exhaustion (DoS)
+	maxRooms        = 10000
+	maxDevices      = 100
+	maxConnsPerRoom = 1000
 )
 
 // DeviceInfo holds optional, best-effort details the browser could expose.
@@ -153,12 +158,20 @@ func (s *Store) lastSeen(roomID string, d *Device) time.Time {
 	return t
 }
 
-func (s *Store) upsert(u deviceUpdate) {
+func (s *Store) upsert(u deviceUpdate) bool {
 	s.mu.Lock()
 	room, ok := s.rooms[u.RoomID]
 	if !ok {
+		if len(s.rooms) >= maxRooms {
+			s.mu.Unlock()
+			return false
+		}
 		room = make(map[string]*Device)
 		s.rooms[u.RoomID] = room
+	}
+	if _, exists := room[u.DeviceID]; !exists && len(room) >= maxDevices {
+		s.mu.Unlock()
+		return false
 	}
 	room[u.DeviceID] = &Device{
 		ID:              u.DeviceID,
@@ -174,6 +187,7 @@ func (s *Store) upsert(u deviceUpdate) {
 	}
 	s.mu.Unlock()
 	s.broadcast(u.RoomID)
+	return true
 }
 
 func (s *Store) remove(roomID, deviceID string) {
@@ -189,14 +203,22 @@ func (s *Store) remove(roomID, deviceID string) {
 }
 
 // attach records a newly opened stream for a device.
-func (s *Store) attach(roomID, deviceID string) {
+func (s *Store) attach(roomID, deviceID string) bool {
 	now := time.Now()
 	s.mu.Lock()
 	if s.presence[roomID] == nil {
+		if len(s.presence) >= maxRooms {
+			s.mu.Unlock()
+			return false
+		}
 		s.presence[roomID] = make(map[string]*presence)
 	}
 	p := s.presence[roomID][deviceID]
 	if p == nil {
+		if len(s.presence[roomID]) >= maxDevices {
+			s.mu.Unlock()
+			return false
+		}
 		p = &presence{}
 		s.presence[roomID][deviceID] = p
 	}
@@ -207,6 +229,7 @@ func (s *Store) attach(roomID, deviceID string) {
 	p.lastSeen = now
 	s.mu.Unlock()
 	s.broadcast(roomID)
+	return true
 }
 
 // detach records a closed stream for a device.
@@ -261,11 +284,19 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 }
 
 func (s *Store) subscribe(roomID string) chan []byte {
-	ch := make(chan []byte, 1)
 	s.mu.Lock()
 	if s.subs[roomID] == nil {
+		if len(s.subs) >= maxRooms {
+			s.mu.Unlock()
+			return nil
+		}
 		s.subs[roomID] = make(map[chan []byte]struct{})
 	}
+	if len(s.subs[roomID]) >= maxConnsPerRoom {
+		s.mu.Unlock()
+		return nil
+	}
+	ch := make(chan []byte, 1)
 	s.subs[roomID][ch] = struct{}{}
 	s.mu.Unlock()
 	return ch
@@ -431,7 +462,10 @@ func (s *Store) handleBattery(w http.ResponseWriter, r *http.Request) {
 	u.Name = clip(u.Name, 80)
 	u.UserAgent = clip(u.UserAgent, 200)
 	u.Info.sanitize()
-	s.upsert(u)
+	if !s.upsert(u) {
+		http.Error(w, "server at capacity", http.StatusServiceUnavailable)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -492,15 +526,25 @@ func main() {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
-		w.WriteHeader(http.StatusOK)
 
 		ch := store.subscribe(roomID)
-		defer store.unsubscribe(roomID, ch)
+		if ch == nil {
+			http.Error(w, "server at capacity", http.StatusServiceUnavailable)
+			return
+		}
 
 		if deviceID != "" {
-			store.attach(roomID, deviceID)
+			if !store.attach(roomID, deviceID) {
+				store.unsubscribe(roomID, ch)
+				http.Error(w, "server at capacity", http.StatusServiceUnavailable)
+				return
+			}
 			defer store.detach(roomID, deviceID)
 		}
+
+		w.WriteHeader(http.StatusOK)
+
+		defer store.unsubscribe(roomID, ch)
 
 		// Send the current snapshot immediately.
 		initial, _ := json.Marshal(store.snapshot(roomID))
