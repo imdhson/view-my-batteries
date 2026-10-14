@@ -36,3 +36,7 @@
 ## 2024-10-31 - Avoid Heap Allocations on Frequent Map Upserts
 **Learning:** In a high-frequency polling/heartbeat endpoint, blindly reassigning a map value with a new pointer (e.g., `map[id] = &Struct{...}`) causes a heap allocation on every single request, significantly increasing garbage collection pressure.
 **Action:** Always check if the key already exists in the map and update the struct's fields in-place if it does, reusing the existing heap allocation.
+
+## 2024-11-01 - Avoid Reflect/Allocations on Frequent Static JSON Responses
+**Learning:** Sending static responses like `{"ok": true}` using `json.NewEncoder(w).Encode(map[string]bool{"ok": true})` on every heartbeat/poll request causes unnecessary memory allocations and uses reflection, which is slow.
+**Action:** For simple, static JSON responses that are returned frequently, pre-allocate the byte slice (e.g. `var okResponse = []byte("{\"ok\":true}\n")`) and write it directly using `w.Write(okResponse)`. This avoids reflection and eliminates per-request allocations.

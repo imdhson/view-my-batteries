@@ -434,6 +434,15 @@ func (s *Store) cleanupStale() {
 
 var validID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
+// ⚡ Bolt: Use pre-allocated byte slice for static JSON response to avoid reflection and allocations on frequent endpoints.
+var okResponse = []byte(`{"ok":true}` + "\n")
+
+func writeOK(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(okResponse)
+}
+
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -478,7 +487,7 @@ func (s *Store) handleBattery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server at capacity", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeOK(w)
 }
 
 func main() {
@@ -513,7 +522,7 @@ func main() {
 		if validID.MatchString(req.RoomID) && validID.MatchString(req.DeviceID) {
 			store.remove(req.RoomID, req.DeviceID)
 		}
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		writeOK(w)
 	})
 
 	mux.HandleFunc("/api/stream", func(w http.ResponseWriter, r *http.Request) {
