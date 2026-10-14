@@ -183,6 +183,10 @@ func (s *Store) upsert(u deviceUpdate) bool {
 		dev.Info = u.Info
 		dev.UpdatedAt = time.Now()
 	} else {
+		if len(room) >= maxDevices {
+			s.mu.Unlock()
+			return false
+		}
 		room[u.DeviceID] = &Device{
 			ID:              u.DeviceID,
 			Name:            u.Name,
