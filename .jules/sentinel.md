@@ -48,3 +48,8 @@
 **Vulnerability:** Unbounded map growth in `s.rooms`, `s.presence`, and `s.subs` allowed attackers to exhaust server memory by creating infinite numbers of rooms, devices, or SSE connections, leading to a Denial of Service.
 **Learning:** In-memory state tracking for dynamic entities (like chat rooms or live devices) must always have enforced upper bounds. Standard Maps (`map[string]T`) in Go will grow indefinitely until the host crashes due to OOM (Out Of Memory).
 **Prevention:** Always implement explicit capacity checks (e.g., `len(s.rooms) >= maxRooms`) before adding new entries to globally shared in-memory collections, and return an appropriate error (e.g., HTTP 503) when capacity is reached.
+
+## 2024-10-14 - Missing Map Capacity Limits per Room (Resource Exhaustion DoS Risk)
+**Vulnerability:** Unbounded map growth in `s.rooms[roomID]` allowed attackers to exhaust server memory by continuously adding an infinite number of unique devices to a single room via the `/api/battery` endpoint, leading to a Denial of Service.
+**Learning:** While global map capacity limits were in place (e.g., `maxRooms`), nested maps inside global collections (like devices within a room) must also have explicitly enforced upper bounds (`maxDevices`) on insertion. Standard Maps (`map[string]*Device`) in Go will grow indefinitely otherwise.
+**Prevention:** Always implement explicit capacity checks (e.g., `if len(room) >= maxDevices`) before adding new entries to globally shared, nested in-memory collections. Return an appropriate failure response when capacity is reached.
