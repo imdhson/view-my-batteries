@@ -22,3 +22,6 @@
 ## 2024-05-24 - Room ID Sharing and Loading UX
 **Learning:** The lack of an optimistic loading state leaves users wondering if connection is working, and the absence of a copy button creates friction in a multi-device tool.
 **Action:** Added an immediate visual loading state before SSE connects and a clipboard copy button with clear accessible confirmation feedback.
+## 2024-11-20 - Disable Autocorrect on ID Fields for Mobile UX
+**Learning:** Mobile keyboards often aggressively autocapitalize the first letter or autocorrect user inputs. For exact string identifiers (like Room IDs), this behavior creates significant friction, causing users to accidentally join the wrong room or receive validation errors.
+**Action:** When creating text inputs that function as IDs, tokens, or usernames, always apply `autocapitalize="off"`, `autocorrect="off"`, and `spellcheck="false"` to prevent unwanted mobile keyboard interventions.
