@@ -25,3 +25,6 @@
 ## 2024-11-20 - Disable Autocorrect on ID Fields for Mobile UX
 **Learning:** Mobile keyboards often aggressively autocapitalize the first letter or autocorrect user inputs. For exact string identifiers (like Room IDs), this behavior creates significant friction, causing users to accidentally join the wrong room or receive validation errors.
 **Action:** When creating text inputs that function as IDs, tokens, or usernames, always apply `autocapitalize="off"`, `autocorrect="off"`, and `spellcheck="false"` to prevent unwanted mobile keyboard interventions.
+## 2024-10-24 - Tooltip mismatches on dynamic icon buttons
+**Learning:** When dynamically changing an icon button's content and `aria-label` (e.g., from 'Copy' to 'Copied!'), the browser's native tooltip for sighted users won't update unless the `title` attribute is explicitly updated as well, leading to a confusing UX where the tooltip contradicts the visual state.
+**Action:** Always sync the `title` attribute alongside `aria-label` when dynamically updating the state of icon-only buttons to ensure consistency for all users.
