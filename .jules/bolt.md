@@ -36,3 +36,7 @@
 ## 2024-10-31 - Avoid Heap Allocations on Frequent Map Upserts
 **Learning:** In a high-frequency polling/heartbeat endpoint, blindly reassigning a map value with a new pointer (e.g., `map[id] = &Struct{...}`) causes a heap allocation on every single request, significantly increasing garbage collection pressure.
 **Action:** Always check if the key already exists in the map and update the struct's fields in-place if it does, reusing the existing heap allocation.
+
+## 2024-10-15 - Prevent reflection and heap allocations on high-frequency HTTP endpoints
+**Learning:** Returning simple JSON responses like `{"ok":true}` using `json.NewEncoder(w).Encode(v)` via reflection with dynamic maps/structs on high-frequency HTTP endpoints (like `/api/battery` heartbeats) causes unnecessary garbage collection pressure and heap allocations, especially when scaled.
+**Action:** Pre-allocate static JSON responses as byte slices (e.g., `[]byte("{\"ok\":true}\n")`) and write them directly using `http.ResponseWriter.Write()`.
