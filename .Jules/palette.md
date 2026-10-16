@@ -10,3 +10,6 @@
 ## 2024-10-06 - Light Mode Contrast with Glass UI
 **Learning:** Bright functional colors (like #3ddc84 for green or #ffc247 for yellow) that look great on a dark background become completely illegible when placed over a luminous, white-based "glass" background in light mode, violating accessibility contrast guidelines.
 **Action:** When implementing a light mode theme with a translucent glass background, explicitly define darker variants for functional colors (accent, green, yellow, red) inside the `@media (prefers-color-scheme: light)` block to maintain sufficient text contrast.
+## 2024-10-16 - Synchronizing title and aria-label on Dynamic Icon Buttons
+**Learning:** When dynamically updating the state of icon-only buttons (like temporarily changing a "Copy" icon to a "Copied!" checkmark), updating only `aria-label` creates a mismatch for sighted users who rely on the native browser tooltip shown by the `title` attribute.
+**Action:** Always synchronize the `title` attribute alongside the `aria-label` attribute when the state of an icon-only button changes to ensure accurate tooltips for sighted users.
