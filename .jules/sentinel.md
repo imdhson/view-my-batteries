@@ -53,3 +53,8 @@
 **Vulnerability:** Unbounded map growth in `s.rooms[roomID]` allowed attackers to exhaust server memory by continuously adding an infinite number of unique devices to a single room via the `/api/battery` endpoint, leading to a Denial of Service.
 **Learning:** While global map capacity limits were in place (e.g., `maxRooms`), nested maps inside global collections (like devices within a room) must also have explicitly enforced upper bounds (`maxDevices`) on insertion. Standard Maps (`map[string]*Device`) in Go will grow indefinitely otherwise.
 **Prevention:** Always implement explicit capacity checks (e.g., `if len(room) >= maxDevices`) before adding new entries to globally shared, nested in-memory collections. Return an appropriate failure response when capacity is reached.
+
+## 2023-10-27 - [Server-Sent Events (SSE) Sensitive Data Caching Risk]
+**Vulnerability:** The `/api/stream` SSE endpoint used `Cache-Control: no-cache`. While this prevents stale data in normal HTTP requests, browsers may still write chunked SSE streams to the local disk cache when using `no-cache`, potentially exposing sensitive real-time battery/device data locally.
+**Learning:** `no-cache` forces revalidation but doesn't strictly prevent storage of the response payload.
+**Prevention:** Always use `Cache-Control: no-store` on endpoints serving sensitive real-time streaming data (like SSE) to guarantee chunks are never written to disk by the browser.
