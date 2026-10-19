@@ -439,10 +439,15 @@ func (s *Store) cleanupStale() {
 
 var validID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+var okResponse = []byte("{\"ok\":true}\n")
+
+// ⚡ Bolt: Pre-allocate static JSON responses as byte slices and write them
+// directly using http.ResponseWriter.Write() instead of using json.NewEncoder().Encode()
+// with dynamic maps/structs to prevent reflection and heap allocations on high-frequency endpoints.
+func writeOK(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	w.WriteHeader(http.StatusOK)
+	w.Write(okResponse)
 }
 
 func secureHeaders(next http.Handler) http.Handler {
@@ -483,7 +488,7 @@ func (s *Store) handleBattery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server at capacity", http.StatusServiceUnavailable)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeOK(w)
 }
 
 func main() {
@@ -518,7 +523,7 @@ func main() {
 		if validID.MatchString(req.RoomID) && validID.MatchString(req.DeviceID) {
 			store.remove(req.RoomID, req.DeviceID)
 		}
-		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+		writeOK(w)
 	})
 
 	mux.HandleFunc("/api/stream", func(w http.ResponseWriter, r *http.Request) {
