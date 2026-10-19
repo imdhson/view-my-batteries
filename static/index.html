@@ -1047,9 +1047,11 @@
     navigator.clipboard.writeText(roomId).then(function() {
       btnCopyId.innerHTML = '<span aria-hidden="true">✅</span>';
       btnCopyId.setAttribute("aria-label", "복사됨!");
+      btnCopyId.setAttribute("title", "복사됨!");
       setTimeout(function() {
         btnCopyId.innerHTML = '<span aria-hidden="true">📋</span>';
         btnCopyId.setAttribute("aria-label", "ID 복사하기");
+        btnCopyId.setAttribute("title", "ID 복사하기");
       }, 2000);
     }).catch(function(e) {
       console.warn("Clipboard copy failed:", e);
