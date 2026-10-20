@@ -53,3 +53,7 @@
 **Vulnerability:** Unbounded map growth in `s.rooms[roomID]` allowed attackers to exhaust server memory by continuously adding an infinite number of unique devices to a single room via the `/api/battery` endpoint, leading to a Denial of Service.
 **Learning:** While global map capacity limits were in place (e.g., `maxRooms`), nested maps inside global collections (like devices within a room) must also have explicitly enforced upper bounds (`maxDevices`) on insertion. Standard Maps (`map[string]*Device`) in Go will grow indefinitely otherwise.
 **Prevention:** Always implement explicit capacity checks (e.g., `if len(room) >= maxDevices`) before adding new entries to globally shared, nested in-memory collections. Return an appropriate failure response when capacity is reached.
+## 2024-05-31 - [Added Strict-Transport-Security and Referrer-Policy]
+**Vulnerability:** HTTP Strict Transport Security (HSTS) and Referrer-Policy were missing from the global middleware. SSE streams were configured with `Cache-Control: no-cache` instead of `no-store`.
+**Learning:** Default Go HTTP servers do not apply rigorous security headers out of the box. SSE streams can cache chunks locally if `no-store` is not explicitly set.
+**Prevention:** Always ensure standard security headers (`HSTS`, `Referrer-Policy`) are present in global middleware and restrict caching aggressively (`no-store`) on sensitive realtime SSE routes.
