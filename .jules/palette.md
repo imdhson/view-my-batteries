@@ -28,3 +28,6 @@
 ## 2024-10-24 - Native Tooltips on Dynamic Icon Buttons
 **Learning:** When changing the state of an icon-only button (like a 'Copy' button changing to a 'Copied!' success state), updating only `aria-label` provides feedback for screen readers, but sighted users relying on mouse hover (native tooltips) see outdated information if the `title` attribute isn't synchronized simultaneously.
 **Action:** Always synchronize the `title` attribute with the `aria-label` attribute when dynamically updating the state of icon-only buttons to ensure native browser tooltips accurately reflect the current state for all users.
+## 2024-10-24 - Contextual Onboarding in Multi-Device Apps
+**Learning:** In real-time multi-device applications, users joining a room alone might not understand that they need to open the app on another device using the same ID to see value, potentially causing them to abandon the app thinking it's broken.
+**Action:** When detecting that a user is the only participant in a room or session, proactively display a contextual onboarding message instructing them on the next necessary step (e.g., "Connect from another device").

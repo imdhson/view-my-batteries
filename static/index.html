@@ -792,7 +792,7 @@
       }
     });
 
-    grid.innerHTML = devices.map(function (d) {
+    let html = devices.map(function (d) {
       const isMe = d.id === deviceId;
       const hasBattery = d.supported && d.level !== null && d.level !== undefined;
       const rows = infoRows(d);
@@ -849,6 +849,18 @@
         '</div>'
       );
     }).join("");
+
+    // Add onboarding card if this is the only device in the room
+    if (devices.length === 1 && devices[0].id === deviceId) {
+      html += '<div class="device glass" style="border: 2px dashed var(--glass-border); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); gap: 12px; min-height: 200px;">' +
+        '<div style="font-size: 32px;" aria-hidden="true">👋</div>' +
+        '<div style="font-size: 15px; font-weight: 500; line-height: 1.5;">' +
+          '혼자 계시네요!<br>다른 기기나 브라우저에서<br>이 ID로 입장해보세요.' +
+        '</div>' +
+      '</div>';
+    }
+
+    grid.innerHTML = html;
 
     if (focusedDetailsId) {
       // Escape quotes just in case, though device ids are usually safe UUIDs
