@@ -528,6 +528,14 @@ func main() {
 	})
 
 	mux.HandleFunc("/api/stream", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if !strings.Contains(r.Header.Get("Accept"), "text/event-stream") {
+			http.Error(w, "unacceptable", http.StatusNotAcceptable)
+			return
+		}
 		roomID := r.URL.Query().Get("roomId")
 		if !validID.MatchString(roomID) {
 			http.Error(w, "invalid roomId", http.StatusBadRequest)
