@@ -57,3 +57,7 @@
 **Vulnerability:** HTTP Strict Transport Security (HSTS) and Referrer-Policy were missing from the global middleware. SSE streams were configured with `Cache-Control: no-cache` instead of `no-store`.
 **Learning:** Default Go HTTP servers do not apply rigorous security headers out of the box. SSE streams can cache chunks locally if `no-store` is not explicitly set.
 **Prevention:** Always ensure standard security headers (`HSTS`, `Referrer-Policy`) are present in global middleware and restrict caching aggressively (`no-store`) on sensitive realtime SSE routes.
+## 2025-02-09 - Missing Input Validation in JSON Body
+**Vulnerability:** Found lack of content type enforcement and missing input validation on JSON APIs.
+**Learning:** `main.go` has `strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")` in `handleBattery` which is good for CSRF protection. However, the `/api/stream` endpoint was accepting all HTTP methods and lacked Accept header validation. This meant cross-origin attackers could embed the SSE endpoint using an `<img>`, `<link>`, or other tags, leading to a drive-by Server-Sent Events (SSE) connection that consumes server resources (DoS) since browsers can initiate GET requests cross-origin.
+**Prevention:** Always validate both the HTTP method (must be GET) and the `Accept` header (must contain `text/event-stream`) for Server-Sent Events endpoints to reject requests that aren't genuine `EventSource` connections.
