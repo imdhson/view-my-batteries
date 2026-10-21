@@ -36,3 +36,7 @@
 ## 2024-10-31 - Avoid Heap Allocations on Frequent Map Upserts
 **Learning:** In a high-frequency polling/heartbeat endpoint, blindly reassigning a map value with a new pointer (e.g., `map[id] = &Struct{...}`) causes a heap allocation on every single request, significantly increasing garbage collection pressure.
 **Action:** Always check if the key already exists in the map and update the struct's fields in-place if it does, reusing the existing heap allocation.
+
+## 2024-11-01 - Avoid Redundant Map Lookups in Inner Loops
+**Learning:** Performing multiple nested map lookups (e.g., `s.presence[roomID][d.ID]`) inside tight loops or hot paths (like a snapshot serializer or broadcasting loop) adds unnecessary hashing overhead. Map lookups in Go are relatively expensive compared to simple pointer passing or variable assignment.
+**Action:** Extract nested map lookups. Retrieve the outer map once before the loop (e.g., `roomPresence := s.presence[roomID]`), and lookup the inner key only once per iteration. Pass the retrieved value into helper functions instead of letting the helpers do the lookups themselves.
