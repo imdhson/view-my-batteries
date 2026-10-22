@@ -57,3 +57,7 @@
 **Vulnerability:** HTTP Strict Transport Security (HSTS) and Referrer-Policy were missing from the global middleware. SSE streams were configured with `Cache-Control: no-cache` instead of `no-store`.
 **Learning:** Default Go HTTP servers do not apply rigorous security headers out of the box. SSE streams can cache chunks locally if `no-store` is not explicitly set.
 **Prevention:** Always ensure standard security headers (`HSTS`, `Referrer-Policy`) are present in global middleware and restrict caching aggressively (`no-store`) on sensitive realtime SSE routes.
+## 2024-05-24 - [Protect SSE Endpoints from CSRF and Cross-Site Hijacking]
+**Vulnerability:** Missing method and accept header validation on the `/api/stream` SSE endpoint.
+**Learning:** SSE endpoints don't inherently validate if they're accessed via an EventSource (which restricts headers and methods) or something else (like an img tag or standard GET). This can open them to Cross-Site Hijacking or drive-by DoS CSRF attacks.
+**Prevention:** Always explicitly validate that the HTTP Method is `GET` and the `Accept` header contains `text/event-stream` on all SSE endpoints.
