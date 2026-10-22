@@ -36,3 +36,7 @@
 ## 2024-10-31 - Avoid Heap Allocations on Frequent Map Upserts
 **Learning:** In a high-frequency polling/heartbeat endpoint, blindly reassigning a map value with a new pointer (e.g., `map[id] = &Struct{...}`) causes a heap allocation on every single request, significantly increasing garbage collection pressure.
 **Action:** Always check if the key already exists in the map and update the struct's fields in-place if it does, reusing the existing heap allocation.
+
+## 2024-11-01 - Avoid Redundant Nested Map Lookups in Loops
+**Learning:** Performing nested map lookups (e.g., `s.presence[roomID][d.ID]`) repeatedly inside tight loops or hot paths forces the runtime to re-hash the outer key (`roomID`) on every single iteration, even though it hasn't changed.
+**Action:** Extract the outer map lookup (`outer := s.map[key1]`) before the loop. Inside the loop, perform only the inner lookup (`inner := outer[key2]`), drastically reducing hashing overhead.
