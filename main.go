@@ -139,20 +139,19 @@ func newStore() *Store {
 	}
 }
 
-// isOnline must be called with s.mu held. A device that has ever opened a
+// isOnline evaluates if a device is online. A device that has ever opened a
 // stream is online exactly while a stream is open; otherwise (e.g. a proxy
 // that breaks SSE) fall back to how recent its last heartbeat was.
-func (s *Store) isOnline(roomID string, d *Device, now time.Time) bool {
-	if p := s.presence[roomID][d.ID]; p != nil {
+func isOnline(p *presence, d *Device, now time.Time) bool {
+	if p != nil {
 		return p.conns > 0
 	}
 	return now.Sub(d.UpdatedAt) < heartbeatGrace
 }
 
-// lastSeen must be called with s.mu held.
-func (s *Store) lastSeen(roomID string, d *Device) time.Time {
+func lastSeen(p *presence, d *Device) time.Time {
 	t := d.UpdatedAt
-	if p := s.presence[roomID][d.ID]; p != nil && p.lastSeen.After(t) {
+	if p != nil && p.lastSeen.After(t) {
 		t = p.lastSeen
 	}
 	return t
@@ -273,14 +272,19 @@ func (s *Store) snapshot(roomID string) roomSnapshot {
 	s.mu.Lock()
 	room := s.rooms[roomID]
 	list := make([]Device, 0, len(room))
+	presenceRoom := s.presence[roomID]
 	for _, d := range room {
-		online := s.isOnline(roomID, d, now)
+		var p *presence
+		if presenceRoom != nil {
+			p = presenceRoom[d.ID]
+		}
+		online := isOnline(p, d, now)
 		d.lastOnline = online
 
 		c := *d
 		c.Online = online
-		c.LastSeen = s.lastSeen(roomID, d)
-		if p := s.presence[roomID][d.ID]; p != nil && p.conns > 0 {
+		c.LastSeen = lastSeen(p, d)
+		if p != nil && p.conns > 0 {
 			since := p.since
 			c.ConnectedAt = &since
 			c.LastSeen = now
@@ -383,8 +387,13 @@ func (s *Store) broadcast(roomID string) {
 	// infinitely triggering broadcasts.
 	if len(s.subs[roomID]) == 0 {
 		now := time.Now()
+		presenceRoom := s.presence[roomID]
 		for _, d := range s.rooms[roomID] {
-			d.lastOnline = s.isOnline(roomID, d, now)
+			var p *presence
+			if presenceRoom != nil {
+				p = presenceRoom[d.ID]
+			}
+			d.lastOnline = isOnline(p, d, now)
 		}
 		s.mu.Unlock()
 		return
@@ -414,12 +423,17 @@ func (s *Store) cleanupStale() {
 		affected := make(map[string]struct{})
 		s.mu.Lock()
 		for roomID, room := range s.rooms {
+			presenceRoom := s.presence[roomID]
 			for deviceID, d := range room {
-				online := s.isOnline(roomID, d, now)
-				if !online && now.Sub(s.lastSeen(roomID, d)) > offlineRetention {
+				var p *presence
+				if presenceRoom != nil {
+					p = presenceRoom[deviceID]
+				}
+				online := isOnline(p, d, now)
+				if !online && now.Sub(lastSeen(p, d)) > offlineRetention {
 					delete(room, deviceID)
-					if p := s.presence[roomID][deviceID]; p != nil && p.conns == 0 {
-						delete(s.presence[roomID], deviceID)
+					if p != nil && p.conns == 0 {
+						delete(presenceRoom, deviceID)
 					}
 					affected[roomID] = struct{}{}
 				} else if online != d.lastOnline {
