@@ -850,6 +850,10 @@
       );
     }).join("");
 
+    if (devices.length === 1 && devices[0].id === deviceId) {
+      grid.innerHTML += '<div class="empty glass" style="grid-column: 1 / -1; margin-top: 14px;">다른 기기(스마트폰, 태블릿 등)에서 같은 ID(<strong>' + escapeHtml(roomId) + '</strong>)로 접속하면 배터리를 함께 볼 수 있습니다.</div>';
+    }
+
     if (focusedDetailsId) {
       // Escape quotes just in case, though device ids are usually safe UUIDs
       const sel = 'details.info[data-id="' + focusedDetailsId.replace(/"/g, '\\"') + '"] > summary';

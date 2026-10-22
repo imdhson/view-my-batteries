@@ -28,3 +28,9 @@
 ## 2024-10-24 - Native Tooltips on Dynamic Icon Buttons
 **Learning:** When changing the state of an icon-only button (like a 'Copy' button changing to a 'Copied!' success state), updating only `aria-label` provides feedback for screen readers, but sighted users relying on mouse hover (native tooltips) see outdated information if the `title` attribute isn't synchronized simultaneously.
 **Action:** Always synchronize the `title` attribute with the `aria-label` attribute when dynamically updating the state of icon-only buttons to ensure native browser tooltips accurately reflect the current state for all users.
+## 2024-05-13 - [Focus state for recreated DOM elements]
+**Learning:** In SSE streams or WebSockets where UI elements are re-created via `innerHTML`, the focused element loses its state, disrupting keyboard navigation. Caching the active element's id and explicitly calling `.focus()` restores it, but you should prevent scrolling using `{ preventScroll: true }` to avoid jarring page jumps.
+**Action:** Always save focus state (`document.activeElement` identifiers) prior to re-rendering DOM elements dynamically, and restore focus immediately afterward if the user was interacting with it.
+## 2024-05-13 - [Contextual onboarding for empty/single-participant states]
+**Learning:** In real-time multi-device applications, empty states (or single-participant states, when the user is alone) are missed opportunities for contextual onboarding. Users connecting to a room alone may not realize they need to connect another device to see value.
+**Action:** Proactively display a contextual onboarding message (e.g., instructing them to connect from another device with the same ID) in single-participant states instead of just showing their own device without context.
